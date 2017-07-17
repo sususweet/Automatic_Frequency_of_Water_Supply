@@ -1,5 +1,5 @@
 #include "msp430f5438a.h"
-
+#include "settings.h"
 /**
  * main.c
  * Default: MCLK = SMCLK = BRCLK = default DCO = ~1.045MHz
