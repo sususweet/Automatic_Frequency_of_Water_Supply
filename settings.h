@@ -11,6 +11,9 @@
 /*
  * ADC1118 Interface
  */
+#define ADC_SCLK_H P5OUT |= BIT5
+#define ADC_SCLK_L P5OUT &= ~BIT5
+
 #define ADC_SCLK IO_BIT_ALIAS(&P5OUT,5)
 #define ADC_DIN IO_BIT_ALIAS(&P5IN,4)
 #define ADC_DOUT IO_BIT_ALIAS(&P3OUT,7)
@@ -19,21 +22,26 @@
 /*
  * Keyboard Interface
  */
-#define KEY_1 IO_BIT_ALIAS(&P2IN,4)
-#define KEY_2 IO_BIT_ALIAS(&P2IN,5)
-#define KEY_3 IO_BIT_ALIAS(&P2IN,6)
-#define KEY_4 IO_BIT_ALIAS(&P2IN,7)
+#define KEY1_IN P11IN &=BIT1
+#define KEY2_IN P11IN &=BIT2
+#define KEY3_IN P1IN &=BIT6
+#define KEY4_IN P1IN &=BIT7
 
 /*
- * LED bit selection Interface
+ * LCD12864 Interface
  */
-#define LED_W_DIR P8DIR      // Set to output direction: 0x0FF
-#define LED_W_OUT P8OUT      // Set all pins HIGH: 0x0FF
+#define LCD_RS_H P3OUT |= BIT0
+#define LCD_RS_L P3OUT &= ~BIT0
+#define LCD_RW_H P3OUT |= BIT5
+#define LCD_RW_L P3OUT &= ~BIT5
+#define LCD_EN_H P3OUT |= BIT4
+#define LCD_EN_L P3OUT &= ~BIT4
+#define LCD_RST_H P11OUT |= BIT0
+#define LCD_RST_L P11OUT &= ~BIT0
+#define LCD_DataIn P8DIR = 0x00    //数据口方向设置为输入
+#define LCD_DataOut P8DIR = 0xff    //数据口方向设置为输出
 
-/*
- * LED segment selection Interface
- */
-#define LED_D1 IO_BIT_ALIAS(&P3OUT,0)
+//#define LED_0_IN P1IN &=BIT1
 #define LED_D2 IO_BIT_ALIAS(&P3OUT,5)
 #define LED_D3 IO_BIT_ALIAS(&P3OUT,4)
 #define LED_D4 IO_BIT_ALIAS(&P11OUT,0)
