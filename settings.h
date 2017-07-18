@@ -8,6 +8,18 @@
 #ifndef SETTINGS_H_
 #define SETTINGS_H_
 
+#define CPU_CLOCK       8000000
+#define Delay_us(us)    __delay_cycles(CPU_CLOCK/1000000*(us))
+#define Delay_ms(ms)    __delay_cycles(CPU_CLOCK/1000*(ms))
+
+
+/*#if CPU_CLOCK == 8000000
+#define delay_us(us)    __delay_cycles(8*(us))
+            #define delay_ms(ms)    __delay_cycles(8000*(ms))
+#else
+#pragma error "CPU_CLOCK is defined implicitly!"
+#endif*/
+
 /*
  * ADC1118 Interface
  */
@@ -30,25 +42,21 @@
 /*
  * LCD12864 Interface
  */
+#define LCD_RS_RW_EN_DIR_OUT P3DIR |= BIT0 + BIT4 + BIT5   // RS,RW,EN Select output
 #define LCD_RS_H P3OUT |= BIT0
 #define LCD_RS_L P3OUT &= ~BIT0
 #define LCD_RW_H P3OUT |= BIT5
 #define LCD_RW_L P3OUT &= ~BIT5
 #define LCD_EN_H P3OUT |= BIT4
 #define LCD_EN_L P3OUT &= ~BIT4
+
+#define LCD_RST_DIR_OUT P11DIR |= BIT0            // RST Select output
 #define LCD_RST_H P11OUT |= BIT0
 #define LCD_RST_L P11OUT &= ~BIT0
-#define LCD_DataIn P8DIR = 0x00    //数据口方向设置为输入
-#define LCD_DataOut P8DIR = 0xff    //数据口方向设置为输出
+#define LCD_DataIn P8DIR &= 0x00    //数据口方向设置为输入
+#define LCD_DataOut P8DIR |= 0xFF    //数据口方向设置为输出
 
 //#define LED_0_IN P1IN &=BIT1
-#define LED_D2 IO_BIT_ALIAS(&P3OUT,5)
-#define LED_D3 IO_BIT_ALIAS(&P3OUT,4)
-#define LED_D4 IO_BIT_ALIAS(&P11OUT,0)
-#define LED_D5 IO_BIT_ALIAS(&P11OUT,1)
-#define LED_D6 IO_BIT_ALIAS(&P11OUT,2)
-#define LED_D7 IO_BIT_ALIAS(&P1OUT,6)
-#define LED_D8 IO_BIT_ALIAS(&P1OUT,7)
 
 /*
  * Motor Interface

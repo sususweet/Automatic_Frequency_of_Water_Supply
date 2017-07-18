@@ -3,6 +3,7 @@
 #include "in430.h"
 #include "settings.h"
 #include "ads1118.h"
+#include "LCD12864.h"
 
 /**
  * main.c
@@ -46,15 +47,22 @@ int main(void) {
 
     ADS1118_GPIO();
 
-    unsigned int Value;
-    unsigned int ConfigRegister;
+
+    LCD_GPIO_Init();
+    LCD_Init();
+
+    /*unsigned int Value;
+    unsigned int ConfigRegister;*/
 
     while(1) {
-        CS_L;
+
+
+
+        /*CS_L;
         Value = Write_SIP(0x858b);           //AD数值     Conversion Register
         ConfigRegister = Write_SIP(0x858b);  //配置寄存器 Config Register
         CS_H;
-        _NOP(); //断点
+        _NOP(); //断点*/
     }
 
     return 0;
