@@ -1,31 +1,33 @@
 /*
  * ads1118.h
  *
- *  Created on: 2017Äê7ÔÂ18ÈÕ
+ *  Created on: 2017å¹´7æœˆ18æ—¥
  *      Author: w
  */
 
 #ifndef ADS1118_H_
 #define ADS1118_H_
 
-#define CPU_F ((double)1200000)  //Ä¬ÈÏ1.2-1.3MHZ Ö»ĞèÒªËæ×Å¾§Õñ¸Ä±ä¸Ä±äÊı×Ö¾Í¿ÉÒÔÁË
+#include "msp430f5438a.h"
+
+#define CPU_F ((double)1200000)  //é»˜è®¤1.2-1.3MHZ åªéœ€è¦éšç€æ™¶æŒ¯æ”¹å˜æ”¹å˜æ•°å­—å°±å¯ä»¥äº†
 #define delay_us(x) __delay_cycles((long)(CPU_F*(double)x/1000000.0))
 #define delay_ms(x) __delay_cycles((long)(CPU_F*(double)x/1000.0))
 
 
-#define   Data_Out  (P3DIR |= BIT0)  // Êı¾İÊä³ö·½Ïò DIN
+#define   Data_Out  (P3DIR |= BIT0)  // æ•°æ®è¾“å‡ºæ–¹å‘ DIN
 #define   DOUT_H    (P3OUT |= BIT0)
 #define   DOUT_L    (P3OUT &=~BIT0)
 
-#define   Data_In   (P3DIR &=~BIT1)  //¶Á»ØÀ´µÄÊı¾İ·½Ïò DOUT
+#define   Data_In   (P3DIR &=~BIT1)  //è¯»å›æ¥çš„æ•°æ®æ–¹å‘ DOUT
 #define   DIN       (P3IN&BIT1)
 
-#define   CLK_Out   (P3DIR |= BIT2)   //Ê±ÖÓÏßÊä³ö·½Ïò  CLK
+#define   CLK_Out   (P3DIR |= BIT2)   //æ—¶é’Ÿçº¿è¾“å‡ºæ–¹å‘  CLK
 #define   CLK_H     (P3OUT |= BIT2)
 #define   CLK_L     (P3OUT &=~BIT2)
 
 
-#define   CS_Out    (P3DIR |= BIT3)   //Æ¬Ñ¡ÏßÊä³ö·½Ïò  CS
+#define   CS_Out    (P3DIR |= BIT3)   //ç‰‡é€‰çº¿è¾“å‡ºæ–¹å‘  CS
 #define   CS_H      (P3OUT |= BIT3)
 #define   CS_L      (P3OUT &=~BIT3)
 
