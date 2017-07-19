@@ -71,7 +71,7 @@ unsigned char read_key() {
     unsigned char col_scan = 0;                          // 行扫描变量
     unsigned char key_code;                              // 扫描码
 
-    key_code = (unsigned char) (KEY_IN & 0xF0);          // 保存列扫描码
+    key_code = (unsigned char) (KEY_IN & 0xF0) >> 4;          // 保存列扫描码
 
     col_scan = BIT7;                       // 先扫描第一行
     for(i=4 ;i>0; i--)                   // 扫描行
@@ -86,7 +86,6 @@ unsigned char read_key() {
 
     col_scan = (unsigned char) ((~col_scan) & 0xF0);       // 得到行扫描码
     key_code |= col_scan;                // 得到完整键盘扫描码
-    _NOP();
     return key_code;
 }
 

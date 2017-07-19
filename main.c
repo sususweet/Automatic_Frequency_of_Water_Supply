@@ -15,10 +15,12 @@ const unsigned char line1[16]={"恒压供水系统"};
 
 #define KEY_WAIT 4    /*键盘扫描延迟周期*/
 #define NONE_KEY_CODE 0xFF
+#define NONE_KEY_NUM 0
 
 void scan_key() {
     static unsigned char key_state = KEY_STATE_RELEASE;   /*状态机状态初始化，采用static保存状态*/
     static unsigned char key_code = NONE_KEY_CODE;
+    static unsigned char key_num = NONE_KEY_NUM;
     unsigned char pressed = press_key(); /*press_key为检测是否有按键按下的函数*/
     static unsigned char scan_time = 0;
     switch (key_state) {
@@ -44,11 +46,11 @@ void scan_key() {
         }
         case KEY_STATE_PRESSED: {   /*若按键被确认按下，则等待按键松开再进行操作*/
             if (pressed == 0) {
-                unsigned char key_num = 0;
                 key_num = translate_key(key_code);
                 opr_key(key_num);  /*opr_key为按键事件响应函数*/
                 key_state = KEY_STATE_RELEASE;
                 key_code = NONE_KEY_CODE;
+                key_num = NONE_KEY_NUM;
             }
             break;
         }
