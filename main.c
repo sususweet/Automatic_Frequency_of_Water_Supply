@@ -1,62 +1,16 @@
 #include "msp430f5438a.h"
-#include "intrinsics.h"
-#include "in430.h"
 #include "settings.h"
-#include "ads1118.h"
-#include "LCD12864.h"
-#include "Keyboard.h"
+#include "frequency_capture.h"
 
-const unsigned char line1[16]={"恒压供水系统"};
+static int start=0;
+static int pulseend=0;
+static int periodend=0;
 
-#include "ADC.h"
+
 /**
  * main.c
  * Default: MCLK = SMCLK = BRCLK = default DCO = ~1.045MHz
  */
-
-#define KEY_WAIT 4    /*键盘扫描延迟周期*/
-#define NONE_KEY_CODE 0xFF
-
-void scan_key() {
-    static unsigned char key_state = KEY_STATE_RELEASE;   /*状态机状态初始化，采用static保存状态*/
-    static unsigned char key_code = NONE_KEY_CODE;
-    unsigned char pressed = press_key(); /*press_key为检测是否有按键按下的函数*/
-    static unsigned char scan_time = 0;
-    switch (key_state) {
-        case KEY_STATE_RELEASE: {   /*若原始状态为无按键按下RELEASE，同时又检测到按键按下，则状态转换到WAITING*/
-            if (pressed == 1) {
-                key_state = KEY_STATE_WAITING;
-            }
-            break;
-        }
-        case KEY_STATE_WAITING: {   /*原始状态为WAITING，对按键进行多次判断*/
-            if (pressed) {
-                scan_time++;
-                if (scan_time >= KEY_WAIT) {   /*若按键按下的时间超过一定时间，则认为按键按下，读按键*/
-                    key_state = KEY_STATE_PRESSED;
-                    scan_time = 0;
-                    key_code = read_key();  /*read_key为读按键的函数*/
-                }
-            } else {    /*若按键松开，则恢复到初始状态*/
-                scan_time = 0;
-                key_state = KEY_STATE_RELEASE;
-            }
-            break;
-        }
-        case KEY_STATE_PRESSED: {   /*若按键被确认按下，则等待按键松开再进行操作*/
-            if (pressed == 0) {
-                unsigned char key_num = 0;
-                key_num = translate_key(key_code);
-                opr_key(key_num);  /*opr_key为按键事件响应函数*/
-                key_state = KEY_STATE_RELEASE;
-                key_code = NONE_KEY_CODE;
-            }
-            break;
-        }
-        default:
-            break;
-    }
-}
 
 
 void initClock(void){
@@ -103,65 +57,54 @@ void initClock(void){
     UCSCTL5 |= DIVM__1 + DIVS__1;              //MCLK=20M；SMCLK=20M；ACLK=32768
 }
 
-void initTimerA0(void){
-    TA0CCR0 = 164;                        // 32768: 定义中断计数周期1s,时钟频率为32.768kHZ,32768 / 32768 = 1s
-    TA0CCTL0 &= ~CCIE;                        // TA0CCR0捕获/比较中断寄存器中断使能
 
-    TA0CCR1 = 164;                             // 定义中断溢出周期5ms
-    TA0CCTL1 |= CCIE;                         // TA0CCR0捕获/比较中断寄存器中断使能
+#pragma vector=TIMER1_A1_VECTOR
+__interrupt void Timer_A1_Cap(void)
+{
+  static unsigned char cap_flag=0;
 
-    TA0CTL = TASSEL_1 + MC_1 + TACLR + TAIE;         // TASSEL_1: ACLK时钟源, MC_1:增计数模式, TACLR: 清零计时器
-    __bis_SR_register(GIE);
-}
+  switch(TA1IV)   //向量查询
+  { case 4:      //捕获中断
+           if(TA1CCTL2&CM0) //捕获到上升沿
+           {
+               TA1CCTL2=(TA1CCTL2&(~CM0))|CM1; //更变设置为下降沿触发
+               if(cap_flag==0){
+                   start=TA0R; //记录初始时间
+                   cap_flag=1; //开始一个周期的捕获
+               }
+               else
+                   periodend=TA0R;
+                   cap_flag=0;
+                   TA1CCTL2 &= ~BIT4; //关中断使能
+           }
+           else if (TA1CCTL2&CM1) //==捕获到下降沿==
+           {
+               TA1CCTL2=(TA1CCTL2&(~CM1))|CM0; //更变设置为上升沿触发
+               if(cap_flag==1){
+                   pulseend=TA0R; //记录初始时间
+               }
+           }
+        break;
 
+    default:
+       break;
+  }
 
-#pragma vector = TIMER0_A0_VECTOR
-__interrupt void Timer_A(void){              // 1s溢出中断
-    _NOP();
-}
-
-
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void Timer_A1(void){             // 2ms溢出中断
-    /*0Eh Timer overflow TAxCTL TAIFG Lowest*/
-    switch(TA0IV) {
-        case 0x0E:{
-            scan_key();
-            break;
-        }
-
-        default:break;
-    }
-}
-
+ }
 
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
     volatile float Voltage;
     initClock();
 
-
-    ADS1118_GPIO();
-
-    Key_GPIO_init();
-    LCD_GPIO_Init();
-    LCD_Init();
-
-    LCD_Show(1, 0, line1);
-    initTimerA0();
-    /*unsigned int Value;
-    unsigned int ConfigRegister;*/
+    Capture_init();
 
 
-
-    ADS1118_GPIO_Init();           //initialize the GPIO
-    ADS1118_SPI_Init();
-
-    Voltage = ADC();
+    __bis_SR_register(GIE);        //开全局中断允许
 
     while (1) {
 
-
+        process_fre(start,periodend);
 
         /*CS_L;
         Value = Write_SIP(0x858b);           //AD数值     Conversion Register
