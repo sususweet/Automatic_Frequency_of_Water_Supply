@@ -8,6 +8,7 @@
 
 const unsigned char line1[16]={"恒压供水系统"};
 
+#include "ADC.h"
 /**
  * main.c
  * Default: MCLK = SMCLK = BRCLK = default DCO = ~1.045MHz
@@ -136,6 +137,7 @@ __interrupt void Timer_A1(void){             // 2ms溢出中断
 
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    volatile float Voltage;
     initClock();
 
 
@@ -150,7 +152,14 @@ int main(void) {
     /*unsigned int Value;
     unsigned int ConfigRegister;*/
 
-    while(1) {
+
+
+    ADS1118_GPIO_Init();           //initialize the GPIO
+    ADS1118_SPI_Init();
+
+    Voltage = ADC();
+
+    while (1) {
 
 
 
@@ -160,6 +169,4 @@ int main(void) {
         CS_H;
         _NOP(); //断点*/
     }
-
-    return 0;
 }

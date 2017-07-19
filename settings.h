@@ -1,6 +1,5 @@
 /*
  * settings.h
- *
  * Author: tangyq
  */
 
@@ -26,13 +25,14 @@
 /*
  * ADC1118 Interface
  */
-#define ADC_SCLK_H P5OUT |= BIT5
-#define ADC_SCLK_L P5OUT &= ~BIT5
+#define ADC_CS P1DIR |= BIT1           // Set P1.1 to output direction
+#define ADC_CS_H P1OUT |= BIT1         // Set P1.1 for CS
+#define ADC_CS_L P1OUT &=~ BIT1        // Set CS low
 
-#define ADC_SCLK IO_BIT_ALIAS(&P5OUT,5)
-#define ADC_DIN IO_BIT_ALIAS(&P5IN,4)
-#define ADC_DOUT IO_BIT_ALIAS(&P3OUT,7)
-#define ADC_CS IO_BIT_ALIAS(&P1OUT,1)
+#define ADC_DOUT P3SEL |= BIT7                          // P3.7 option select
+#define ADC_DIN P5SEL |= BIT4                          // P5.4,5 option select
+#define ADC_SCLK P5SEL |= BIT5
+//#define AD_P5 P5DIR |= BIT0                          // Set P5.0 to output direction
 
 /*
  * Single Keyboard Interface
