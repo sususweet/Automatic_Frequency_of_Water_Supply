@@ -2,13 +2,12 @@
 #include "intrinsics.h"
 #include "in430.h"
 #include "settings.h"
-#include "ads1118.h"
 #include "LCD12864.h"
 #include "Keyboard.h"
+#include "ADC.h"
 
 const unsigned char line1[16]={"恒压供水系统"};
 
-#include "ADC.h"
 /**
  * main.c
  * Default: MCLK = SMCLK = BRCLK = default DCO = ~1.045MHz
@@ -113,7 +112,6 @@ void initTimerA0(void){
     TA0CCTL1 |= CCIE;                         // TA0CCR0捕获/比较中断寄存器中断使能
 
     TA0CTL = TASSEL_1 + MC_1 + TACLR + TAIE;         // TASSEL_1: ACLK时钟源, MC_1:增计数模式, TACLR: 清零计时器
-    __bis_SR_register(GIE);
 }
 
 
@@ -140,11 +138,11 @@ __interrupt void Timer_A1(void){             // 2ms溢出中断
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
     volatile float Voltage;
+    
+    __bis_SR_register(GIE);
     initClock();
-
-
-    ADS1118_GPIO();
-
+    ADS1118_GPIO_Init();           //initialize the GPIO
+    ADS1118_SPI_Init();
     Key_GPIO_init();
     LCD_GPIO_Init();
     LCD_Init();
@@ -153,11 +151,6 @@ int main(void) {
     initTimerA0();
     /*unsigned int Value;
     unsigned int ConfigRegister;*/
-
-
-
-    ADS1118_GPIO_Init();           //initialize the GPIO
-    ADS1118_SPI_Init();
 
     Voltage = ADC();
 
@@ -171,4 +164,5 @@ int main(void) {
         CS_H;
         _NOP(); //断点*/
     }
+    return 0;
 }
