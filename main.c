@@ -16,6 +16,10 @@
 #define NONE_KEY_CODE 0xFF
 #define NONE_KEY_NUM 0
 #define LCD_TWINKLE_FREQ 100    /*LCDÉÁË¸ÖÜÆÚ*/
+
+#define MAX_STANDBY_PRESSURE 300
+#define MAX_WORKING_PRESSURE 500
+
 enum setting_state {
     NORMAL, STANDBY1, STANDBY2, STANDBY3, WORKING1, WORKING2, WORKING3
 };
@@ -214,8 +218,10 @@ void opr_key(unsigned char key_num) {
                 default:break;
 
             }
-            if (standbyPressure > 300) standbyPressure = 300;
-            if (workingPressure > 500) workingPressure = 500;
+            if (setting_stage != NORMAL){
+                if (standbyPressure > MAX_STANDBY_PRESSURE) standbyPressure = MAX_STANDBY_PRESSURE;
+                if (workingPressure > MAX_WORKING_PRESSURE) workingPressure = MAX_WORKING_PRESSURE;
+            }
             break;
         }
         case 3: {
@@ -307,6 +313,7 @@ void opr_key(unsigned char key_num) {
                 }
                 case STANDBY3:{
                     standbyPressure = standbyPressure / 100 * 100 + standbyPressure % 100 / 10 * 10 + num;
+                    if (standbyPressure > MAX_STANDBY_PRESSURE) standbyPressure = MAX_STANDBY_PRESSURE;
                     break;
                 }
                 case WORKING1:{
@@ -319,6 +326,7 @@ void opr_key(unsigned char key_num) {
                 }
                 case WORKING3:{
                     workingPressure = workingPressure / 100 * 100 + workingPressure % 100 / 10 * 10 + num;
+                    if (workingPressure > MAX_WORKING_PRESSURE) workingPressure = MAX_WORKING_PRESSURE;
                     break;
                 }
                 default:break;
@@ -330,7 +338,7 @@ void opr_key(unsigned char key_num) {
                     break;
                 }
                 default:{
-                    setting_stage ++;
+                    if (setting_stage != NORMAL) setting_stage ++;
                     break;
                 }
             }
