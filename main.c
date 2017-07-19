@@ -6,6 +6,7 @@
 #include "LCD12864.h"
 #include "Keyboard.h"
 #include "ADC.h"
+#include "ThreePhaseSpwm.h"
 
 /**
  * main.c
@@ -24,6 +25,10 @@ enum setting_state {
     NORMAL, STANDBY1, STANDBY2, STANDBY3, WORKING1, WORKING2, WORKING3
 };
 
+enum motor_state {
+    MOTOR_WORKING, MOTOR_STOPPED
+};
+
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 unsigned int standbyPressure = 20;
 unsigned int workingPressure = 0;
@@ -31,6 +36,7 @@ unsigned int waterPressure = 0;
 unsigned int waterFlow = 0;
 
 unsigned char setting_stage = NORMAL;
+unsigned char motor_stage = MOTOR_STOPPED;
 unsigned char lcd_twinkle_cursor = 0;
 unsigned char lcd_twinkle_num = 0;
 
@@ -129,7 +135,9 @@ void initClock(void){
         SFRIFG1 &= ~OFIFG;                      // Clear fault flags
     }
     while (SFRIFG1 & OFIFG);                   // Test oscillator fault flag
-    UCSCTL5 |= DIVM__1 + DIVS__1;              //MCLK=20M；SMCLK=20M；ACLK=32768
+    UCSCTL5 |= DIVM__1 + DIVS__1;              // MCLK=20M；SMCLK=20M；ACLK=32768
+
+    __bis_SR_register(GIE);                    // Enable all interrupt.
 }
 
 void initTimerA0(void){
@@ -162,6 +170,8 @@ __interrupt void Timer_A1(void){             // 2ms溢出中断
                 if (setting_stage == NORMAL) LCD_Show_Update();
                 else LCD_Twinkle_Update();
             }
+
+            SPWM_FreqChangeCheck();
 
             //LCD_Show_Update();
             break;
@@ -256,9 +266,15 @@ void opr_key(unsigned char key_num) {
         }
         /*抽水系统启动/停止*/
         case 4: {
-            switch (setting_stage) {
-                case STANDBY1:{
-
+            switch (motor_stage) {
+                case MOTOR_STOPPED:{
+                    SPWM_Init();
+                    motor_stage = MOTOR_WORKING;
+                    break;
+                }
+                case MOTOR_WORKING:{
+                    SPWM_Stop();
+                    motor_stage = MOTOR_STOPPED;
                     break;
                 }
                 default:break;
@@ -357,6 +373,7 @@ void LCD_Init_Show(){
     LCD_Show(3, 0, line3);
     LCD_Show(4, 0, line41);
     LCD_Show(4, 4, line42);
+    LCD_Show_Update();
 }
 
 void LCD_Show_Get_Data(unsigned int variable){
@@ -462,14 +479,17 @@ void LCD_Show_Update(){
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
     volatile float Voltage;
-    __bis_SR_register(GIE);
+
     initClock();
     ADS1118_GPIO_Init();           //initialize the GPIO
     ADS1118_SPI_Init();
-    Key_GPIO_init();
+    Key_GPIO_Init();
     LCD_GPIO_Init();
     LCD_Init();
     LCD_Init_Show();
+
+
+    SPWM_Init();
 
     initTimerA0();
     /*unsigned int Value;

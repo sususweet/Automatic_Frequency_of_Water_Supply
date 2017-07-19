@@ -11,7 +11,7 @@ enum key_states_e {
     KEY_STATE_PRESSED
 };
 
-void Key_GPIO_init(void);
+void Key_GPIO_Init(void);
 
 
 /**

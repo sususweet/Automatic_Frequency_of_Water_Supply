@@ -27,7 +27,7 @@ const unsigned char key_table[17]={                     // ษจร่ย๋า๋ย๋ฑํ
 };
 
 
-void Key_GPIO_init(void){
+void Key_GPIO_Init(void){
     KEYH_OUT_DIR;
     KEYL_IN_DIR;
 }
