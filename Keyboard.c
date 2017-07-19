@@ -27,21 +27,6 @@ const unsigned char key_table[17]={                     // É¨ÃèÂëÒëÂë±í
 };
 
 
-void opr_key(unsigned char key_num) {
-    switch (key_num) {
-        case 0: {
-
-            break;
-        }
-        case 1: {
-
-            break;
-        }
-        default: break;
-    }
-}
-
-
 void Key_GPIO_init(void){
     KEYH_OUT_DIR;
     KEYL_IN_DIR;

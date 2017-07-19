@@ -96,15 +96,10 @@ void LCD_Init() {
 void LCD_Position(unsigned char X, unsigned char Y) {
     unsigned char Pos;
     if (X == 1) X = 0x80;
-
     else if (X == 2) X = 0x90;
-
     else if (X == 3) X = 0x88;
-
     else if (X == 4) X = 0x98;
-
     Pos = X + Y;
-
     LCD_WriteCommand(Pos);                                   //显示地址
 }
 
@@ -210,7 +205,7 @@ void LCD_GPIO_Init() {
 }
 
 
-void LCD_Show(unsigned char x, unsigned char y,unsigned char *str) {
+void LCD_Show(unsigned char x, unsigned char y, unsigned char *str) {
     LCD_Position (x,y);
     while (*str != '\0')  //连续写入字符串数据，直到检测到结束符
     {

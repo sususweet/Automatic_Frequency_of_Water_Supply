@@ -13,7 +13,6 @@ enum key_states_e {
 
 void Key_GPIO_init(void);
 
-void opr_key(unsigned char key_code);
 
 /**
  * @desc: É¨ÃèÂë·­Òë
