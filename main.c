@@ -14,14 +14,18 @@
  * Default: MCLK = SMCLK = BRCLK = default DCO = ~1.045MHz
  */
 
-#define KEY_WAIT 8    /*键盘扫描延迟周期*/
+#define KEY_WAIT 4    /*键盘扫描延迟周期*/
 #define NONE_KEY_CODE 0xFF
 #define NONE_KEY_NUM 0
-#define LCD_TWINKLE_FREQ 100    /*LCD闪烁周期*/
-#define PID_CALCULATE_FREQ 100  /*PID计算周期*/
+#define LCD_TWINKLE_FREQ 50    /*LCD闪烁周期*/
+#define PID_CALCULATE_FREQ 50  /*PID计算周期*/
 
-#define MAX_STANDBY_PRESSURE 300
-#define MAX_WORKING_PRESSURE 500
+#define MAX_STANDBY_PRESSURE 3000
+#define MAX_WORKING_PRESSURE 5000
+#define MIN_WORKING_PRESSURE 20000
+
+#define DEFAULT_STANDBY_PRESSURE 0
+#define DEFAULT_WORKING_PRESSURE 0
 
 enum setting_state {
     NORMAL, STANDBY1, STANDBY2, STANDBY3, WORKING1, WORKING2, WORKING3
@@ -35,13 +39,13 @@ unsigned int freq_periodStart = 0;
 unsigned int freq_pulseEnd = 0;
 unsigned int freq_periodEnd = 0;
 unsigned char freq_overflow = 0;             //防止溢出
+unsigned char cap_flag = 0;
 volatile float frequency;
 volatile float voltage;
-unsigned char cap_flag = 0;
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
-unsigned int standbyPressure = 20;
-unsigned int workingPressure = 0;
+unsigned int standbyPressure = DEFAULT_STANDBY_PRESSURE;
+unsigned int workingPressure = DEFAULT_WORKING_PRESSURE;
 
 unsigned char setting_stage = NORMAL;
 unsigned char motor_stage = MOTOR_STOPPED;
@@ -152,10 +156,10 @@ void initClock(void) {
 }
 
 void initTimerA0(void) {
-    TA0CCR0 = 164;                            // 32768: 定义中断计数周期1s,时钟频率为32.768kHZ,32768 / 32768 = 1s
+    TA0CCR0 = 328;                            // 32768: 定义中断计数周期1s,时钟频率为32.768kHZ,32768 / 32768 = 1s
     TA0CCTL0 &= ~CCIE;                        // TA0CCR0捕获/比较中断寄存器中断使能
 
-    TA0CCR1 = 164;                            // 定义中断溢出周期5ms
+    TA0CCR1 = 328;                            // 定义中断溢出周期10ms
     TA0CCTL1 |= CCIE;                         // TA0CCR0捕获/比较中断寄存器中断使能
 
     TA0CTL = TASSEL_1 + MC_1 + TACLR + TAIE;         // TASSEL_1: ACLK时钟源, MC_1:增计数模式, TACLR: 清零计时器
@@ -536,7 +540,7 @@ void LCD_Twinkle_Update() {
 void LCD_Show_Update() {
     unsigned int waterFlow = 0;
     unsigned int waterPressure = 0;
-    
+
     LCD_Show_Get_Data(standbyPressure);
     LCD_Show(2, 5, displayCache);
     LCD_Show_Get_Data(workingPressure);
@@ -563,10 +567,16 @@ int main(void) {
     LCD_Init();
     LCD_Init_Show();
 
-    _NOP();
+    //_NOP();
     SPWM_Init();
-    _NOP();
+    //_NOP();
     initTimerA0();
+
+
+
+
+
+
     /*unsigned int Value;
     unsigned int ConfigRegister;*/
 
