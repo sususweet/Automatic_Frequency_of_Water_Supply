@@ -42,8 +42,6 @@ unsigned char cap_flag = 0;
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 unsigned int standbyPressure = 20;
 unsigned int workingPressure = 0;
-unsigned int waterPressure = 0;
-unsigned int waterFlow = 0;
 
 unsigned char setting_stage = NORMAL;
 unsigned char motor_stage = MOTOR_STOPPED;
@@ -323,8 +321,7 @@ void opr_key(unsigned char key_num) {
             }
             break;
         }
-            /*抽水系统启动/停止*/
-        case 4: {
+        case 4: {                       /*抽水系统启动/停止*/
             switch (motor_stage) {
                 case MOTOR_STOPPED: {
                     SPWM_Init();
@@ -338,7 +335,6 @@ void opr_key(unsigned char key_num) {
                 }
                 default:
                     break;
-
             }
             break;
         }
@@ -448,6 +444,9 @@ void LCD_Show_Get_Data(unsigned int variable) {
 }
 
 void LCD_Twinkle_Update() {
+    unsigned int waterFlow = 0;
+    unsigned int waterPressure = 0;
+
     if (lcd_twinkle_cursor == 0) {
         lcd_twinkle_cursor = 1;
         switch (setting_stage) {
@@ -525,26 +524,35 @@ void LCD_Twinkle_Update() {
         }
     }
 
+    waterPressure = (unsigned int) (voltage * 10);
     LCD_Show_Get_Data(waterPressure);
     LCD_Show(4, 2, displayCache);
+
+    waterFlow = (unsigned int) (frequency / 7.5 * 10);
     LCD_Show_Get_Data(waterFlow);
     LCD_Show(4, 6, displayCache);
 }
 
 void LCD_Show_Update() {
+    unsigned int waterFlow = 0;
+    unsigned int waterPressure = 0;
+    
     LCD_Show_Get_Data(standbyPressure);
     LCD_Show(2, 5, displayCache);
     LCD_Show_Get_Data(workingPressure);
     LCD_Show(3, 5, displayCache);
+
+    waterPressure = (unsigned int) (voltage * 10);
     LCD_Show_Get_Data(waterPressure);
     LCD_Show(4, 2, displayCache);
+
+    waterFlow = (unsigned int) (frequency / 7.5 * 10);
     LCD_Show_Get_Data(waterFlow);
     LCD_Show(4, 6, displayCache);
 }
 
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
-
 
     initClock();
     ADS1118_GPIO_Init();           //initialize the GPIO
