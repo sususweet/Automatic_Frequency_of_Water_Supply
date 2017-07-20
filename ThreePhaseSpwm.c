@@ -17,7 +17,7 @@
 #include "math.h"
 #include "intrinsics.h"
 
-#define M 1000                                             // 载波比1000
+#define M 100                                             // 载波比1000
 #define PI 3.14159
 #define DeadTime 20                                         // 1us
 #define a_m 0.05                                                // a_m:调制度
