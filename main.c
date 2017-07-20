@@ -2,10 +2,12 @@
 #include "settings.h"
 #include "frequency_capture.h"
 
-static int start=0;
-static int pulseend=0;
-static int periodend=0;
-
+unsigned int start = 0;
+unsigned int pulseend = 0;
+unsigned int periodend = 0;
+unsigned char overflow = 0;             //防止溢出
+volatile float frequency;
+unsigned char cap_flag = 0;
 
 /**
  * main.c
@@ -13,7 +15,7 @@ static int periodend=0;
  */
 
 
-void initClock(void){
+void initClock(void) {
     /* Initialize System Clock.
      * Modified: ACLK = REFO = 32kHz, MCLK = SMCLK = 8MHz
      */
@@ -48,53 +50,70 @@ void initClock(void){
     __delay_cycles(1024000);
 
     // Loop until XT1,XT2 & DCO fault flag is cleared
-    do{
+    do {
         UCSCTL7 &= ~(XT2OFFG + XT1LFOFFG + XT1HFOFFG + DCOFFG);
         // Clear XT2,XT1,DCO fault flags
         SFRIFG1 &= ~OFIFG;                      // Clear fault flags
-    }
-    while (SFRIFG1 & OFIFG);                   // Test oscillator fault flag
+    } while (SFRIFG1 & OFIFG);                   // Test oscillator fault flag
     UCSCTL5 |= DIVM__1 + DIVS__1;              //MCLK=20M；SMCLK=20M；ACLK=32768
 }
 
 
 #pragma vector=TIMER1_A1_VECTOR
-__interrupt void Timer_A1_Cap(void)
-{
-  static unsigned char cap_flag=0;
 
-  switch(TA1IV)   //向量查询
-  { case 4:      //捕获中断
-           if(TA1CCTL2&CM0) //捕获到上升沿
-           {
-               TA1CCTL2=(TA1CCTL2&(~CM0))|CM1; //更变设置为下降沿触发
-               if(cap_flag==0){
-                   start=TA0R; //记录初始时间
-                   cap_flag=1; //开始一个周期的捕获
-               }
-               else
-                   periodend=TA0R;
-                   cap_flag=0;
-                   TA1CCTL2 &= ~BIT4; //关中断使能
-           }
-           else if (TA1CCTL2&CM1) //==捕获到下降沿==
-           {
-               TA1CCTL2=(TA1CCTL2&(~CM1))|CM0; //更变设置为上升沿触发
-               if(cap_flag==1){
-                   pulseend=TA0R; //记录初始时间
-               }
-           }
-        break;
+__interrupt void Timer_A1_Cap(void) {
+    switch (TA1IV)   //向量查询
+    {
+        case 0x04:      //捕获中断
+        {
+            if (TA1CCTL2 & CM0) //捕获到上升沿
+            {
+                TA1CCTL2 = (TA1CCTL2 & (~CM0)) | CM1; //更变设置为下降沿触发
+                if (cap_flag == 0) {
+                    start = TA1CCR2; //记录初始时间
+                    cap_flag = 1; //开始一个周期的捕获
+                } else {
+                    periodend = TA1CCR2;   //一个周期的时间
+                    if (!overflow) {
+                        frequency = 32768 / (periodend - start);
+                    } else { overflow = 0; }
+                    cap_flag = 0;
+                    //TA1CCTL2 &= ~CCIE;   //关捕获使能
+                    //TA1CTL &= ~TAIE;     //关中断使能
+                }
+            } else if (TA1CCTL2 & CM1) //==捕获到下降沿==
+            {
+                TA1CCTL2 = (TA1CCTL2 & (~CM1)) | CM0; //更变设置为上升沿触发
+                if (cap_flag == 1) {
+                    pulseend = TA1CCR2; //记录脉冲宽度结束时间
+                }
+            }
 
-    default:
-       break;
-  }
-
- }
+/*test
+       {
+        if(TA1CCTL2&CM0) //捕获到上升沿
+        {
+            TA1CCTL2=(TA1CCTL2&(~CM0))|CM1; //更变设置为下降沿触发
+            start=TA1CCR2;
+        }
+        else if(TA1CCTL2&CM1) //==捕获到下降沿==
+        {
+            TA1CCTL2=(TA1CCTL2&(~CM1))|CM0; //更变设置为上升沿触发
+            pulseend=TA1CCR2;
+        }
+*/
+            break;
+        }
+        case 0X0E:                                 // 溢出数加1
+            overflow++;
+            break;
+        default:
+            break;
+    }
+}
 
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
-    volatile float Voltage;
     initClock();
 
     Capture_init();
@@ -103,9 +122,6 @@ int main(void) {
     __bis_SR_register(GIE);        //开全局中断允许
 
     while (1) {
-
-        process_fre(start,periodend);
-
         /*CS_L;
         Value = Write_SIP(0x858b);           //AD数值     Conversion Register
         ConfigRegister = Write_SIP(0x858b);  //配置寄存器 Config Register

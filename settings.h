@@ -97,6 +97,6 @@
  * Frequency Capture
  */
 #define Fre_Capture_IN P2DIR &= ~BIT3; //设置P2.3口为外部脉冲输入口
-#define Fre_Capture_Mode P2SEL = BIT3; //设置P2.3口为功能模块使用,做捕获源
+#define Fre_Capture_Mode P2SEL |= BIT3; //设置P2.3口为功能模块使用,做捕获源
 
 #endif /* SETTINGS_H_ */

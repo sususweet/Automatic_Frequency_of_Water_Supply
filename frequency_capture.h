@@ -9,6 +9,5 @@
 #define FREQUENCY_CAPTURE_H_
 
 void Capture_init();
-int process_fre(int begin,int end);
 
 #endif /* FREQUENCY_CAPTURE_H_ */

@@ -24,26 +24,15 @@ void Capture_init()
     Fre_Capture_IN;
     Fre_Capture_Mode;
 
-    TA1CTL = TASSEL_1 + ID_0 + TACLR + TAIE + MC1;//定时器A时钟信号选择ACLK,1分频,同时设置定时器A计数模式为连续增计模式
+    TA1CTL = TASSEL_1 + ID_0 + TACLR + TAIE + MC_2;//定时器A时钟信号选择ACLK,1分频,同时设置定时器A计数模式为连续增计模式
     //TASSEL 01 ACLK  10 SMCLK
     //ID 00 /1 01 /2 10 /4 11 /8
     //TACLR clear
     //TAIE  interrupt enabled
     //MC    00 stop 01 up mode 10 continuous mode 11 up then down
-    TA1CCTL2 = CM_1 + SCS + CAP + CCIE; //==输入上升沿捕获,CCI0A为捕获信号源==
+    TA1CCTL2 |= CM_1 + SCS + CAP + CCIE + CCIFG; //==输入上升沿捕获,CCI2A为捕获信号源==
     //CM    CM_1 上升沿捕获 CM_2 下降沿 CM_3上升下降都捕获
     //SCS   0异步捕获 1同步捕获
     //CAP   0比较模式 1捕获模式
     //CCIE  中断允许（标志位）
-}
-
-int process_fre(int begin,int end){
-    int cycle;
-
-    if(begin>=end)
-        cycle=0;
-    else
-        cycle=32768/(end-begin);
-
-    return cycle;
 }
