@@ -59,8 +59,8 @@ unsigned char read_key() {
     key_code = (unsigned char) (KEY_IN & 0xF0) >> 4;          // 保存列扫描码
 
     col_scan = BIT7;                       // 先扫描第一行
-    for(i=4 ;i>0; i--)                   // 扫描行
-    {
+    for(i=4 ;i>0; i--) {                 // 扫描行
+
         KEY_OUT = (0xFF & (~col_scan));    // 扫描的相应行置低电平
         if((KEY_IN & 0xF0) != 0xF0)      // 是否这一行有键按下
         {
@@ -83,8 +83,8 @@ unsigned char press_key() {
     KEY_OUT = 0x00;                             // 4行全部置零，判断是否有键按下
     //KH_OUT_L;                                 // 4行全部置零，判断是否有键按下
     if((KEY_IN & 0xF0) != 0xF0) {
-        _NOP();
+        //_NOP();
         return 1;       // 有键按下
     }
-    else return 0;
+    return 0;
 }

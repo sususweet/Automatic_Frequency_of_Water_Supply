@@ -166,15 +166,51 @@ void initTimerA0(void) {
     TA0CCTL0 &= ~CCIE;                        // TA0CCR0捕获/比较中断寄存器中断使能
 
     TA0CCR1 = 328;                            // 定义中断溢出周期10ms
-    TA0CCTL1 |= CCIE;                         // TA0CCR0捕获/比较中断寄存器中断使能
+    TA0CCTL1 &= ~CCIE;                         // TA0CCR0捕获/比较中断寄存器中断使能
 
     TA0CTL = TASSEL_1 + MC_1 + TACLR + TAIE;         // TASSEL_1: ACLK时钟源, MC_1:增计数模式, TACLR: 清零计时器
 }
 
 
-#pragma vector = TIMER0_A0_VECTOR
+/*#pragma vector = TIMER0_A0_VECTOR
 __interrupt void Timer_A(void) {              // 1s溢出中断
-    _NOP();
+    //_NOP();
+}*/
+
+#pragma vector = TIMER0_A1_VECTOR
+__interrupt void Timer_A1(void) {             // 10ms溢出中断
+    /*0Eh Timer overflow TAxCTL TAIFG Lowest*/
+    switch (TA0IV) {
+        case 0x0E: {
+            //__bis_SR_register(GIE);                    // Enable all interrupt.
+            scan_key();
+            //pid_calculate_num++;
+            lcd_twinkle_num++;
+
+            if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
+                 voltage = ADC();
+                 lcd_twinkle_num = 0;
+                 voltageArray[voltageArrayIndex] = voltage;
+                 voltageArrayIndex ++;
+                 if (voltageArrayIndex >= 50) voltageArrayIndex = 0;
+                 //if (setting_stage == NORMAL)
+                 //LCD_Show_Update();
+                 //else LCD_Twinkle_Update();
+             }
+
+            /*if (pid_calculate_num >= PID_CALCULATE_FREQ) {
+                pid_calculate_num = 0;
+                // TODO: PID calculation loop
+            }*/
+
+            //SPWM_FreqChangeCheck();
+
+            //LCD_Show_Update();
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 #pragma vector=TIMER1_A1_VECTOR
@@ -212,38 +248,6 @@ __interrupt void Timer_A1_Cap(void) {
     }
 }
 
-
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void Timer_A1(void) {             // 10ms溢出中断
-    /*0Eh Timer overflow TAxCTL TAIFG Lowest*/
-    switch (TA0IV) {
-        case 0x0E: {
-            scan_key();
-            lcd_twinkle_num++;
-            voltage = ADC();
-            voltageArray[voltageArrayIndex] = voltage;
-            voltageArrayIndex ++;
-            if (voltageArrayIndex >= 50) voltageArrayIndex = 0;
-            if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {
-                lcd_twinkle_num = 0;
-                if (setting_stage == NORMAL) LCD_Show_Update();
-                else LCD_Twinkle_Update();
-            }
-
-            if (pid_calculate_num >= PID_CALCULATE_FREQ) {
-                pid_calculate_num = 0;
-                // TODO: PID calculation loop
-            }
-
-            SPWM_FreqChangeCheck();
-
-            //LCD_Show_Update();
-            break;
-        }
-        default:
-            break;
-    }
-}
 
 void opr_key(unsigned char key_num) {
     switch (key_num) {
@@ -564,7 +568,7 @@ void LCD_Show_Update() {
     unsigned int waterFlow = 0;
     unsigned int waterPressure = 0;
 
-    sprintf(displayCache,"%04d",tri_frequency);
+   // sprintf(displayCache,"%04d",tri_frequency);
     LCD_Show(1, 2, displayCache);
 
     LCD_Show_Get_Data(standbyPressure);
@@ -597,8 +601,11 @@ int main(void) {
     SPWM_Init();
     //SPWM_GPIO_INIT();
     _NOP();
+
     initTimerA0();
 
+    SPWM_GPIO_INIT();
+    SPWM_CLOCK_INIT();
 
     while (1) {
         /*CS_L;

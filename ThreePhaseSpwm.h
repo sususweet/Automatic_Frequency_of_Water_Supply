@@ -8,12 +8,13 @@
 #ifndef THREEPHASESPWM_H_
 #define THREEPHASESPWM_H_
 
-#define M 450                                             // 载波比1000
+#define M  249                                           // 载波比1000
 #define PI 3.14159
 #define DeadTime 20                                         // 1us
 #define a_m 0.2                                                // a_m:调制度
 #define Rad 2.0944                                          // 2PI/3
-#define Fc_Default 15000									// Default 10khz
+#define Fc_Default 8715								// Default 10khz
+//#define M_Default 450									// Default 10khz
 
 void SPWM_GPIO_INIT();
 void SPWM_CLOCK_INIT();
