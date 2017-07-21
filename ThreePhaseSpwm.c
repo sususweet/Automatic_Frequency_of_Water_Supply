@@ -19,6 +19,7 @@
 
 #define POINT_PER_TIME 10
 unsigned int IntervalTimer_UA_Tmp[M] = {0};                 // 0 phase temp
+float IntervalTimer_UA_SinValue[M] = {0};
 unsigned int IntervalTimer_UA[M] = {0};                     // 0 phase
 unsigned int IntervalTimer_UB[M] = {0};                     // -120 phase
 unsigned int IntervalTimer_UC[M] = {0};                     // +120 phase
@@ -82,11 +83,15 @@ void SPWM_Init() {
 
     //U
     for (iu = 0; iu < M; iu++) {
-        IntervalTimer_UA[iu] = (unsigned int) ((0.25 - a_m * sin(2 * PI * iu / M)) * CPU_CLOCK * 1000000 / Fc);
+        IntervalTimer_UA_SinValue[iu] = (float) ((0.25 - a_m * sin(2 * PI * iu / M)) * CPU_CLOCK * 1000000);
+    }
+
+    for (iu = 0; iu < M; iu++) {
+        IntervalTimer_UA[iu] = (unsigned int) (IntervalTimer_UA_SinValue[iu] / Fc);
     }
     __no_operation();
     //V
-    for (iu = 0, iv = iu + M / 3 ; iu < M,iv < M; iu++,iv++) {
+    for (iu = 0, iv = iu + M / 3 ; iu < M, iv < M; iu++,iv++) {
         IntervalTimer_UB[iv] = IntervalTimer_UA[iu];
     }
     for (iv = M / 3 - 1, iu = M - 1 ; iv > 0 ; iu--,iv--) {
@@ -129,8 +134,6 @@ void SPWM_FreqChangeCheck() {
     if (Fc_Change_Flag == 1) {
         Fc_Change_Flag = 0;
         SPWM_Calculation_Finished = 0;
-        TBCCR0 = CPU_CLOCK * 1000000 / (Fc * 2);
-
 
         /* for (i = 0; i < M; i++) {
             IntervalTimer_UA[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M)) * CPU_CLOCK * 1000000 / Fc);
@@ -160,11 +163,14 @@ void SPWM_Calculate(){
 
     //U_TMP
     for (; iu_tmp < M, point < POINT_PER_TIME; iu_tmp++, point++) {
-        IntervalTimer_UA_Tmp[iu_tmp] = (unsigned int) ((0.25 - a_m * sin(2 * PI * iu_tmp / M)) * CPU_CLOCK * 1000000 / Fc);
+        IntervalTimer_UA_Tmp[iu_tmp] = (unsigned int) (IntervalTimer_UA_SinValue[iu_tmp] / Fc);
     }
     __no_operation();
     if (iu_tmp >= M) {
         SPWM_Calculation_Finished = 1;
+
+        TBCCR0 = CPU_CLOCK * 1000000 / (Fc * 2);
+
         //U
         for (iu = 0; iu < M; iu++) {
             IntervalTimer_UA[iu] = IntervalTimer_UA_Tmp[iu];

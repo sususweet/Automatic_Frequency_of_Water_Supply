@@ -13,7 +13,7 @@
 #define DeadTime 20                                         // 1us
 #define a_m 0.2                                                // a_m:µ÷ÖÆ¶È
 #define Rad 2.0944                                          // 2PI/3
-#define Fc_Default 8715								// Default 10khz
+#define Fc_Default 11205								// Default 10khz
 //#define M_Default 450									// Default 10khz
 
 void SPWM_GPIO_INIT();

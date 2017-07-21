@@ -58,8 +58,8 @@ unsigned char read_key() {
 
     key_code = (unsigned char) (KEY_IN & 0xF0) >> 4;          // 保存列扫描码
 
-    col_scan = BIT7;                       // 先扫描第一行
-    for(i=4 ;i>0; i--) {                 // 扫描行
+    //col_scan = BIT7;                       // 先扫描第一行
+    /*for(i=4 ;i>0; i--) {                 // 扫描行
 
         KEY_OUT = (0xFF & (~col_scan));    // 扫描的相应行置低电平
         if((KEY_IN & 0xF0) != 0xF0)      // 是否这一行有键按下
@@ -67,9 +67,10 @@ unsigned char read_key() {
             break;
         }
         col_scan = col_scan >> 1;        // 扫描下一行
-    }
+    }*/
 
-    col_scan = (unsigned char) ((~col_scan) & 0xF0);       // 得到行扫描码
+    //col_scan = (unsigned char) ((~col_scan) & 0xF0);       // 得到行扫描码
+    col_scan = 0x70;
     key_code |= col_scan;                // 得到完整键盘扫描码
     return key_code;
 }

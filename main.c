@@ -38,6 +38,8 @@ enum motor_state {
 /*unsigned int */
 float voltageArray[50] =  {0};
 unsigned int voltageArrayIndex = 0;
+float frequencyArray[50] =  {0};
+unsigned int frequencyArrayIndex = 0;
 
 unsigned int freq_periodStart = 0;
 unsigned int freq_pulseEnd = 0;
@@ -58,6 +60,10 @@ unsigned char motor_stage = MOTOR_STOPPED;
 unsigned char lcd_twinkle_cursor = 0;
 unsigned char lcd_twinkle_num = 0;
 unsigned char pid_calculate_num = 0;
+
+unsigned char standbyPressureChangeFlag = 1;
+unsigned char workingPressureChangeFlag = 1;
+unsigned char FCChangeFlag = 1;
 
 const unsigned char line1[16] = {"FC  "};
 const unsigned char line2[16] = {"待机压力："};
@@ -193,9 +199,8 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
                  voltageArray[voltageArrayIndex] = voltage;
                  voltageArrayIndex ++;
                  if (voltageArrayIndex >= 50) voltageArrayIndex = 0;
-                 //if (setting_stage == NORMAL)
-                 //LCD_Show_Update();
-                 //else LCD_Twinkle_Update();
+                 if (setting_stage == NORMAL) LCD_Show_Update();
+                 else LCD_Twinkle_Update();
              }
 
             /*if (pid_calculate_num >= PID_CALCULATE_FREQ) {
@@ -203,7 +208,7 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
                 // TODO: PID calculation loop
             }*/
 
-            //SPWM_FreqChangeCheck();
+            SPWM_FreqChangeCheck();
 
             //LCD_Show_Update();
             break;
@@ -226,6 +231,9 @@ __interrupt void Timer_A1_Cap(void) {
                     freq_periodEnd = TA1CCR2;   //一个周期的时间
                     if (!freq_overflow) {
                         frequency = 32768 / (freq_periodEnd - freq_periodStart);
+                        frequencyArray[frequencyArrayIndex] = frequency;
+                        frequencyArrayIndex ++;
+                        if (frequencyArrayIndex >= 50) frequencyArrayIndex = 0;
                     } else { freq_overflow = 0; }
                     cap_flag = 0;
                     //TA1CCTL2 &= ~CCIE;   //关捕获使能
@@ -261,7 +269,7 @@ void opr_key(unsigned char key_num) {
                 }
                 default: {
                     setting_stage++;
-                    _NOP();
+                    //_NOP();
                     break;
                 }
             }
@@ -271,30 +279,37 @@ void opr_key(unsigned char key_num) {
             switch (setting_stage) {
                 case STANDBY1: {
                     standbyPressure += 100;
+                    standbyPressureChangeFlag = 1;
                     break;
                 }
                 case STANDBY2: {
                     standbyPressure += 10;
+                    standbyPressureChangeFlag = 1;
                     break;
                 }
                 case STANDBY3: {
                     standbyPressure += 1;
+                    standbyPressureChangeFlag = 1;
                     break;
                 }
                 case WORKING1: {
                     workingPressure += 100;
+                    workingPressureChangeFlag = 1;
                     break;
                 }
                 case WORKING2: {
                     workingPressure += 10;
+                    workingPressureChangeFlag = 1;
                     break;
                 }
                 case WORKING3: {
                     workingPressure += 1;
+                    workingPressureChangeFlag = 1;
                     break;
                 }
                 case NORMAL: {
-                    tri_frequency += 500;
+                    tri_frequency += 250;
+                    FCChangeFlag = 1;
                     SPWM_Change_Freq(tri_frequency);
                     break;
                 }
@@ -311,36 +326,54 @@ void opr_key(unsigned char key_num) {
         case 3: {
             switch (setting_stage) {
                 case STANDBY1: {
-                    if (standbyPressure / 100 != 0) standbyPressure -= 100;
+                    if (standbyPressure / 100 != 0) {
+                        standbyPressure -= 100;
+                        standbyPressureChangeFlag = 1;
+                    }
                     break;
                 }
                 case STANDBY2: {
-                    if (standbyPressure / 100 != 0 || standbyPressure % 100 / 10 != 0) standbyPressure -= 10;
+                    if (standbyPressure / 100 != 0 || standbyPressure % 100 / 10 != 0) {
+                        standbyPressure -= 10;
+                        standbyPressureChangeFlag = 1;
+                    }
                     break;
                 }
                 case STANDBY3: {
                     if (standbyPressure / 100 != 0 || standbyPressure % 100 / 10 != 0 ||
-                        standbyPressure % 100 % 10 != 0)
+                        standbyPressure % 100 % 10 != 0){
                         standbyPressure -= 1;
+                        standbyPressureChangeFlag = 1;
+                    }
+
                     break;
                 }
                 case WORKING1: {
-                    if (workingPressure / 100 != 0) workingPressure -= 100;
+                    if (workingPressure / 100 != 0) {
+                        workingPressure -= 100;
+                        workingPressureChangeFlag = 1;
+                    }
                     break;
                 }
                 case WORKING2: {
-                    if (workingPressure / 100 != 0 || workingPressure % 100 / 10 != 0) workingPressure -= 10;
+                    if (workingPressure / 100 != 0 || workingPressure % 100 / 10 != 0) {
+                        workingPressure -= 10;
+                        workingPressureChangeFlag = 1;
+                    }
                     break;
                 }
                 case WORKING3: {
                     if (workingPressure / 100 != 0 || workingPressure % 100 / 10 != 0 ||
-                        workingPressure % 100 % 10 != 0)
+                        workingPressure % 100 % 10 != 0){
                         workingPressure -= 1;
+                        workingPressureChangeFlag = 1;
+                    }
                     break;
                 }
                 case NORMAL: {
-                    tri_frequency -= 500;
+                    tri_frequency -= 250;
                     SPWM_Change_Freq(tri_frequency);
+                    FCChangeFlag = 1;
                     break;
                 }
                 default:
@@ -415,6 +448,7 @@ void opr_key(unsigned char key_num) {
                 case STANDBY3: {
                     standbyPressure = standbyPressure / 100 * 100 + standbyPressure % 100 / 10 * 10 + num;
                     if (standbyPressure > MAX_STANDBY_PRESSURE) standbyPressure = MAX_STANDBY_PRESSURE;
+                    standbyPressureChangeFlag = 1;
                     break;
                 }
                 case WORKING1: {
@@ -428,6 +462,7 @@ void opr_key(unsigned char key_num) {
                 case WORKING3: {
                     workingPressure = workingPressure / 100 * 100 + workingPressure % 100 / 10 * 10 + num;
                     if (workingPressure > MAX_WORKING_PRESSURE) workingPressure = MAX_WORKING_PRESSURE;
+                    workingPressureChangeFlag = 1;
                     break;
                 }
                 default:
@@ -459,7 +494,7 @@ void LCD_Init_Show() {
     LCD_Show(2, 0, line2);
     LCD_Show(3, 0, line3);
     LCD_Show(4, 0, line41);
-    LCD_Show(4, 4, line42);
+    //LCD_Show(4, 4, line42);
     LCD_Show_Update();
 }
 
@@ -469,6 +504,7 @@ void LCD_Show_Get_Data(unsigned int variable) {
     displayCache[1] = (unsigned char) (variable % 100 / 10 + '0');
     displayCache[2] = '.';
     displayCache[3] = (unsigned char) (variable % 100 % 10 + '0');
+    displayCache[4] = '\0';
 }
 
 void LCD_Twinkle_Update() {
@@ -483,6 +519,7 @@ void LCD_Twinkle_Update() {
                 displayCache[1] = (unsigned char) (standbyPressure % 100 / 10 + '0');
                 displayCache[2] = '.';
                 displayCache[3] = (unsigned char) (standbyPressure % 100 % 10 + '0');
+                displayCache[4] = '\0';
                 LCD_Show(2, 5, displayCache);
                 break;
             }
@@ -491,6 +528,7 @@ void LCD_Twinkle_Update() {
                 displayCache[1] = ' ';
                 displayCache[2] = '.';
                 displayCache[3] = (unsigned char) (standbyPressure % 100 % 10 + '0');
+                displayCache[4] = '\0';
                 LCD_Show(2, 5, displayCache);
                 break;
             }
@@ -499,6 +537,7 @@ void LCD_Twinkle_Update() {
                 displayCache[1] = (unsigned char) (standbyPressure % 100 / 10 + '0');
                 displayCache[2] = '.';
                 displayCache[3] = ' ';
+                displayCache[4] = '\0';
                 LCD_Show(2, 5, displayCache);
                 break;
             }
@@ -507,6 +546,7 @@ void LCD_Twinkle_Update() {
                 displayCache[1] = (unsigned char) (workingPressure % 100 / 10 + '0');
                 displayCache[2] = '.';
                 displayCache[3] = (unsigned char) (workingPressure % 100 % 10 + '0');
+                displayCache[4] = '\0';
                 LCD_Show(3, 5, displayCache);
                 break;
             }
@@ -515,6 +555,7 @@ void LCD_Twinkle_Update() {
                 displayCache[1] = ' ';
                 displayCache[2] = '.';
                 displayCache[3] = (unsigned char) (workingPressure % 100 % 10 + '0');
+                displayCache[4] = '\0';
                 LCD_Show(3, 5, displayCache);
                 break;
             }
@@ -523,6 +564,7 @@ void LCD_Twinkle_Update() {
                 displayCache[1] = (unsigned char) (workingPressure % 100 / 10 + '0');
                 displayCache[2] = '.';
                 displayCache[3] = ' ';
+                displayCache[4] = '\0';
                 LCD_Show(3, 5, displayCache);
                 break;
             }
@@ -551,38 +593,69 @@ void LCD_Twinkle_Update() {
                 break;
         }
     }
+    if (FCChangeFlag == 1) {
+        displayCache[0] = ' ';
+        displayCache[1] = ' ';
+        displayCache[2] = ' ';
+        displayCache[3] = ' ';
+        displayCache[4] = ' ';
+        displayCache[5] = '\0';
+        LCD_Show(1, 2, displayCache);
+        sprintf(displayCache, "%04d", tri_frequency);
+        LCD_Show(1, 2, displayCache);
+        FCChangeFlag = 0;
+    }
 
-    sprintf(displayCache,"%04d",tri_frequency);
-    LCD_Show(1, 2, displayCache);
-
-    waterPressure = (unsigned int) (voltage * 10);
-    LCD_Show_Get_Data(waterPressure);
+    sprintf(displayCache,"%6.5f",voltage);
+    /*waterPressure = (unsigned int) (voltage * 10);
+    LCD_Show_Get_Data(waterPressure);*/
     LCD_Show(4, 2, displayCache);
 
-    waterFlow = (unsigned int) (frequency / 7.5 * 10);
+    /*waterFlow = (unsigned int) (frequency / 7.5 * 10);
     LCD_Show_Get_Data(waterFlow);
-    LCD_Show(4, 6, displayCache);
+    LCD_Show(4, 6, displayCache);*/
+
 }
 
 void LCD_Show_Update() {
     unsigned int waterFlow = 0;
     unsigned int waterPressure = 0;
 
-   // sprintf(displayCache,"%04d",tri_frequency);
-    LCD_Show(1, 2, displayCache);
+   /* //sprintf(displayCache,"%04d",tri_frequency);
+    LCD_Show(1, 2, displayCache);*/
+    if (FCChangeFlag == 1){
+        displayCache[0] = ' ';
+        displayCache[1] = ' ';
+        displayCache[2] = ' ';
+        displayCache[3] = ' ';
+        displayCache[4] = ' ';
+        displayCache[5] = '\0';
+        LCD_Show(1, 2, displayCache);
+        sprintf(displayCache,"%04d",tri_frequency);
+        LCD_Show(1, 2, displayCache);
+        FCChangeFlag = 0;
+    }
 
-    LCD_Show_Get_Data(standbyPressure);
-    LCD_Show(2, 5, displayCache);
-    LCD_Show_Get_Data(workingPressure);
-    LCD_Show(3, 5, displayCache);
+    if (standbyPressureChangeFlag == 1){
+        LCD_Show_Get_Data(standbyPressure);
+        LCD_Show(2, 5, displayCache);
+        standbyPressureChangeFlag = 0;
+    }
 
-    waterPressure = (unsigned int) (voltage * 10);
-    LCD_Show_Get_Data(waterPressure);
+    if (workingPressureChangeFlag == 1){
+        LCD_Show_Get_Data(workingPressure);
+        LCD_Show(3, 5, displayCache);
+        workingPressureChangeFlag = 0;
+    }
+
+    sprintf(displayCache,"%6.5f",voltage);
+    //waterPressure = (unsigned int) (voltage * 10);
+    //LCD_Show_Get_Data(waterPressure);
     LCD_Show(4, 2, displayCache);
 
-    waterFlow = (unsigned int) (frequency / 7.5 * 10);
+    /*waterFlow = (unsigned int) (frequency / 7.5 * 10);
     LCD_Show_Get_Data(waterFlow);
-    LCD_Show(4, 6, displayCache);
+    LCD_Show(4, 6, displayCache);*/
 }
 
 int main(void) {
@@ -604,8 +677,8 @@ int main(void) {
 
     initTimerA0();
 
-    SPWM_GPIO_INIT();
-    SPWM_CLOCK_INIT();
+    //SPWM_GPIO_INIT();
+    //SPWM_CLOCK_INIT();
 
     while (1) {
         /*CS_L;
