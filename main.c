@@ -8,17 +8,18 @@
 #include "ADC.h"
 #include "ThreePhaseSpwm.h"
 #include "frequency_capture.h"
+#include "PID.h"
+
 
 /**
  * main.c
- * Default: MCLK = SMCLK = BRCLK = default DCO = ~1.045MHz
  */
 
 #define KEY_WAIT 4    /*键盘扫描延迟周期*/
 #define NONE_KEY_CODE 0xFF
 #define NONE_KEY_NUM 0
-#define LCD_TWINKLE_FREQ 50    /*LCD闪烁周期*/
-#define PID_CALCULATE_FREQ 50  /*PID计算周期*/
+#define LCD_TWINKLE_FREQ 50    /*LCD闪烁周期 500ms*/
+#define PID_CALCULATE_FREQ 100  /*PID计算周期 1s*/
 
 #define MAX_STANDBY_PRESSURE 3000
 #define MAX_WORKING_PRESSURE 5000
@@ -26,6 +27,13 @@
 
 #define DEFAULT_STANDBY_PRESSURE 0
 #define DEFAULT_WORKING_PRESSURE 0
+
+#define Max_Fre 250
+#define Min_Fre 10
+
+#define dot 50
+#define err_range 0.5
+extern pid PIDFreq;
 
 enum setting_state {
     NORMAL, STANDBY1, STANDBY2, STANDBY3, WORKING1, WORKING2, WORKING3
@@ -47,13 +55,17 @@ unsigned int freq_periodEnd = 0;
 unsigned char freq_overflow = 0;             //防止溢出
 unsigned char cap_flag = 0;
 volatile float frequency;
-volatile float voltage;
+volatile float Capture_voltage;
 
-unsigned int tri_frequency = Fc_Default;
+unsigned int Set_Fc = Fc_Default;
+unsigned int Capture_Fc = Fc_Default;
+unsigned int Sent_Fc = Fc_Default;
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 unsigned int standbyPressure = DEFAULT_STANDBY_PRESSURE;
 unsigned int workingPressure = DEFAULT_WORKING_PRESSURE;
+
+
 
 unsigned char setting_stage = NORMAL;
 unsigned char motor_stage = MOTOR_STOPPED;
@@ -79,6 +91,8 @@ void LCD_Show_Update();
 void LCD_Twinkle_Update();
 
 void opr_key(unsigned char key_num);
+
+void Change_Fc_PID();
 
 void scan_key() {
     static unsigned char key_state = KEY_STATE_RELEASE;   /*状态机状态初始化，采用static保存状态*/
@@ -190,27 +204,26 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
         case 0x0E: {
             //__bis_SR_register(GIE);                    // Enable all interrupt.
             scan_key();
-            //pid_calculate_num++;
+            pid_calculate_num++;
             lcd_twinkle_num++;
 
             if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
-                 voltage = ADC();
+                 Capture_voltage = ADC();
                  lcd_twinkle_num = 0;
-                 voltageArray[voltageArrayIndex] = voltage;
+                 voltageArray[voltageArrayIndex] = Capture_voltage;
                  voltageArrayIndex ++;
                  if (voltageArrayIndex >= 50) voltageArrayIndex = 0;
                  if (setting_stage == NORMAL) LCD_Show_Update();
                  else LCD_Twinkle_Update();
              }
 
-            /*if (pid_calculate_num >= PID_CALCULATE_FREQ) {
+            if (pid_calculate_num >= PID_CALCULATE_FREQ) {
                 pid_calculate_num = 0;
-                // TODO: PID calculation loop
-            }*/
+                Change_Fc_PID();
+            }
 
             SPWM_FreqChangeCheck();
 
-            //LCD_Show_Update();
             break;
         }
         default:
@@ -308,9 +321,9 @@ void opr_key(unsigned char key_num) {
                     break;
                 }
                 case NORMAL: {
-                    tri_frequency += 250;
+                    Set_Fc += 250;
                     FCChangeFlag = 1;
-                    SPWM_Change_Freq(tri_frequency);
+                    SPWM_Change_Freq(Set_Fc);
                     break;
                 }
                 default:
@@ -371,8 +384,8 @@ void opr_key(unsigned char key_num) {
                     break;
                 }
                 case NORMAL: {
-                    tri_frequency -= 250;
-                    SPWM_Change_Freq(tri_frequency);
+                    Set_Fc -= 250;
+                    SPWM_Change_Freq(Set_Fc);
                     FCChangeFlag = 1;
                     break;
                 }
@@ -601,13 +614,13 @@ void LCD_Twinkle_Update() {
         displayCache[4] = ' ';
         displayCache[5] = '\0';
         LCD_Show(1, 2, displayCache);
-        sprintf(displayCache, "%04d", tri_frequency);
+        sprintf(displayCache, "%04d", Set_Fc);
         LCD_Show(1, 2, displayCache);
         FCChangeFlag = 0;
     }
 
-    sprintf(displayCache,"%6.5f",voltage);
-    /*waterPressure = (unsigned int) (voltage * 10);
+    sprintf(displayCache,"%6.5f",Capture_voltage);
+    /*waterPressure = (unsigned int) (Capture_voltage * 10);
     LCD_Show_Get_Data(waterPressure);*/
     LCD_Show(4, 2, displayCache);
 
@@ -621,7 +634,7 @@ void LCD_Show_Update() {
     unsigned int waterFlow = 0;
     unsigned int waterPressure = 0;
 
-   /* //sprintf(displayCache,"%04d",tri_frequency);
+   /* //sprintf(displayCache,"%04d",Set_Fc);
     LCD_Show(1, 2, displayCache);*/
     if (FCChangeFlag == 1){
         displayCache[0] = ' ';
@@ -631,7 +644,7 @@ void LCD_Show_Update() {
         displayCache[4] = ' ';
         displayCache[5] = '\0';
         LCD_Show(1, 2, displayCache);
-        sprintf(displayCache,"%04d",tri_frequency);
+        sprintf(displayCache,"%04d",Set_Fc);
         LCD_Show(1, 2, displayCache);
         FCChangeFlag = 0;
     }
@@ -648,14 +661,27 @@ void LCD_Show_Update() {
         workingPressureChangeFlag = 0;
     }
 
-    sprintf(displayCache,"%6.5f",voltage);
-    //waterPressure = (unsigned int) (voltage * 10);
+    sprintf(displayCache,"%6.5f",Capture_voltage);
+    //waterPressure = (unsigned int) (Capture_voltage * 10);
     //LCD_Show_Get_Data(waterPressure);
     LCD_Show(4, 2, displayCache);
 
     /*waterFlow = (unsigned int) (frequency / 7.5 * 10);
     LCD_Show_Get_Data(waterFlow);
     LCD_Show(4, 6, displayCache);*/
+}
+
+void Change_Fc_PID(){
+    PID_realize();
+    if(PIDFreq.freq > Max_Fre){
+        Sent_Fc = Max_Fre;
+    }
+    else if (PIDFreq.freq < Min_Fre){
+        Sent_Fc = Min_Fre;
+    }
+    else {
+        Sent_Fc = PIDFreq.freq;
+    }
 }
 
 int main(void) {
@@ -669,6 +695,8 @@ int main(void) {
     LCD_GPIO_Init();
     LCD_Init();
     LCD_Init_Show();
+
+    PID_init();
 
     _NOP();
     SPWM_Init();
@@ -688,4 +716,7 @@ int main(void) {
         _NOP(); //断点*/
     }
     return 0;
+
 }
+
+

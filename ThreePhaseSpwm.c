@@ -76,7 +76,6 @@ void SPWM_Change_Freq(unsigned int freq) {
 }
 
 void SPWM_Init() {
-    unsigned int i;
     unsigned int iu, iv, iw;
     SPWM_GPIO_OFF();
     //SPWM_GPIO_INIT();
@@ -129,8 +128,6 @@ void SPWM_Init() {
 }
 
 void SPWM_FreqChangeCheck() {
-    unsigned int i;
-
     if (Fc_Change_Flag == 1) {
         Fc_Change_Flag = 0;
         SPWM_Calculation_Finished = 0;

@@ -1,7 +1,7 @@
 /*
  * ADC.c
  *
- *  Created on: 2017Äê7ÔÂ18ÈÕ
+ *  Created on: 2017ï¿½ï¿½7ï¿½ï¿½18ï¿½ï¿½
  *      Author: w
  */
 
@@ -123,13 +123,13 @@ signed int ADS1118_WriteSPI(unsigned int config, unsigned char mode)
 }
 
 /*
- * do ADC once and return a float as voltage
+ * do ADC once and return a float as Capture_voltage
  */
 float ADC(void)
 {
     signed int ADC_Result;
     float Voltage_ch1;
-    ADS1118_ADS_Config(0xC3E3);                          //Only Select AIN1,860SPS,+-4.096V scan voltage range;
+    ADS1118_ADS_Config(0xC3E3);                          //Only Select AIN1,860SPS,+-4.096V scan Capture_voltage range;
 
     ADC_Result = ADS1118_ADS_Read();                      // Read data from ch1,the last time result
     if (ADC_Result >= 0x8000)

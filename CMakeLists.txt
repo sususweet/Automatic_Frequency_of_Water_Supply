@@ -16,6 +16,8 @@ set(SOURCE_FILES settings.h
         ThreePhaseSpwm.h
         frequency_capture.c
         frequency_capture.h
+        PID.c
+        PID.h
         in430.h
         msp430f5438a.h)
 
