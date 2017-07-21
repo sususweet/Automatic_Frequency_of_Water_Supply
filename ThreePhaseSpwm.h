@@ -15,9 +15,13 @@
 #define Rad 2.0944                                          // 2PI/3
 #define Fc_Default 15000									// Default 10khz
 
+void SPWM_GPIO_INIT();
+void SPWM_CLOCK_INIT();
+void SPWM_GPIO_OFF();
+
 void SPWM_Init();
 void SPWM_FreqChangeCheck();
-void SPWM_Stop();
+void SPWM_Calculate();
 void SPWM_Change_Freq(unsigned int freq);
 
 #endif /* THREEPHASESPWM_H_ */

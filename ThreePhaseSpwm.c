@@ -17,42 +17,35 @@
 #include "math.h"
 #include "intrinsics.h"
 
+#define POINT_PER_TIME 10
+unsigned int IntervalTimer_UA_Tmp[M] = {0};                 // 0 phase temp
 unsigned int IntervalTimer_UA[M] = {0};                     // 0 phase
 unsigned int IntervalTimer_UB[M] = {0};                     // -120 phase
 unsigned int IntervalTimer_UC[M] = {0};                     // +120 phase
-unsigned int Fc = Fc_Default;                                    // Default 10khz
+unsigned int Fc = Fc_Default;                               // Default 10khz
 unsigned char Fc_Change_Flag = 0;
+unsigned char SPWM_Calculation_Finished = 1;
 
 void SPWM_GPIO_INIT() {
     P4SEL |= (BIT1 + BIT2 + BIT3 + BIT4 + BIT5 + BIT6);
-    P4DIR |= (BIT1 + BIT2 + BIT3 + BIT4 + BIT5 + BIT6);               //P4.1~P4.6 Select output low default
+    P4DIR |= (BIT1 + BIT2 + BIT3 + BIT4 + BIT5 + BIT6);               // P4.1~P4.6 Select output low default
     P4OUT |= BIT3;
     P4OUT &= ~BIT2;
-    //P7DIR &= ~BIT2;                                          // P7.2 select input
+    //P7DIR &= ~BIT2;                                                 // P7.2 select input
 }
 
-void SPWM_Init() {
-    unsigned int i;
-    volatile unsigned int testtt;
-    SPWM_GPIO_INIT();
-    //KEY_GPIO_INIT();
-    //U
-    for (i = 0; i < M; i++) {
-        IntervalTimer_UA[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M)) * CPU_CLOCK * 1000000 / Fc);
-    }
-    __no_operation();
-    //V
-    for (i = 0; i < M; i++) {
-        IntervalTimer_UB[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M - Rad)) * CPU_CLOCK * 1000000 / Fc);
-    }
-    __no_operation();
-    //W
-    for (i = 0; i < M; i++) {
-        IntervalTimer_UC[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M + Rad)) * CPU_CLOCK * 1000000 / Fc);
-    }
-    __no_operation();
+/**
+ * Output low level to close MOSFET OR IGBT
+ */
+void SPWM_GPIO_OFF() {
+    P4SEL &=~(BIT1+BIT2+BIT3+BIT4+BIT5+BIT6);
+    P4DIR |= (BIT1+BIT2+BIT3+BIT4+BIT5+BIT6);
+    P4OUT &=~(BIT1+BIT2+BIT3+BIT4+BIT5+BIT6);
+    TBCTL &= ~TBIE;
+}
+
+void SPWM_CLOCK_INIT(){
     TBCCR0 = CPU_CLOCK * 1000000 / (Fc * 2);                            // PWM Period
-    testtt = CPU_CLOCK * 1000000 / (Fc * 2);
     // U相，Tdeadtime = Tdco*(TBCCR2-TBCCR3)=1us;
     TBCCTL2 = OUTMOD_6;                                     // CCR2 Toggle/Set
     TBCCR2 = IntervalTimer_UA[0];                           // CCR2 PWM Duty Cycle
@@ -71,12 +64,75 @@ void SPWM_Init() {
     TBCTL = TBSSEL_2 + MC_3 + TBCLR + TBIE;                 // SMCLK=20M, contmode, clear TBR
 }
 
+
+/**
+ *  Change frequency of Triangle Wave to change the frequency and amplitude of output sine wave.
+ *  Fc range from 5000 to 20000 Hz
+ */
+void SPWM_Change_Freq(unsigned int freq) {
+    Fc = freq;
+    Fc_Change_Flag = 1;
+}
+
+void SPWM_Init() {
+    unsigned int i;
+    unsigned int iu, iv, iw;
+    SPWM_GPIO_OFF();
+    //SPWM_GPIO_INIT();
+
+    //U
+    for (iu = 0; iu < M; iu++) {
+        IntervalTimer_UA[iu] = (unsigned int) ((0.25 - a_m * sin(2 * PI * iu / M)) * CPU_CLOCK * 1000000 / Fc);
+    }
+    __no_operation();
+    //V
+    for (iu = 0, iv = iu + M / 3 ; iu < M,iv < M; iu++,iv++) {
+        IntervalTimer_UB[iv] = IntervalTimer_UA[iu];
+    }
+    for (iv = M / 3 - 1, iu = M - 1 ; iv > 0 ; iu--,iv--) {
+        IntervalTimer_UB[iv] = IntervalTimer_UA[iu];
+    }
+    IntervalTimer_UB[0] = IntervalTimer_UA[2 * M / 3];
+    __no_operation();
+
+    //W
+    for (iu = 0, iw = iu + 2 * M / 3 ; iu< M,iw < M; iu++,iw++) {
+        IntervalTimer_UC[iw] = IntervalTimer_UA[iu];
+    }
+    for (iw = 2 * M / 3 - 1, iu = M - 1 ; iw > 0 ; iu--,iw--) {
+        IntervalTimer_UC[iw] = IntervalTimer_UA[iu];
+    }
+    IntervalTimer_UC[0] = IntervalTimer_UA[M / 6];
+    __no_operation();
+    //SPWM_CLOCK_INIT();
+
+    /*//U
+    for (i = 0; i < M; i++) {
+        IntervalTimer_UA[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M)) * CPU_CLOCK * 1000000 / Fc);
+    }
+    __no_operation();
+    //V
+    for (i = 0; i < M; i++) {
+        IntervalTimer_UB[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M - Rad)) * CPU_CLOCK * 1000000 / Fc);
+    }
+    __no_operation();
+    //W
+    for (i = 0; i < M; i++) {
+        IntervalTimer_UC[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M + Rad)) * CPU_CLOCK * 1000000 / Fc);
+    }
+    __no_operation();*/
+}
+
 void SPWM_FreqChangeCheck() {
     unsigned int i;
+
     if (Fc_Change_Flag == 1) {
         Fc_Change_Flag = 0;
+        SPWM_Calculation_Finished = 0;
         TBCCR0 = CPU_CLOCK * 1000000 / (Fc * 2);
-        for (i = 0; i < M; i++) {
+
+
+        /* for (i = 0; i < M; i++) {
             IntervalTimer_UA[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M)) * CPU_CLOCK * 1000000 / Fc);
         }
         __no_operation();
@@ -88,21 +144,75 @@ void SPWM_FreqChangeCheck() {
         //W
         for (i = 0; i < M; i++) {
             IntervalTimer_UC[i] = (unsigned int) ((0.25 - a_m * sin(2 * PI * i / M + Rad)) * CPU_CLOCK * 1000000 / Fc);
-        }
+        }*/
     }
+    if (SPWM_Calculation_Finished == 0){
+        SPWM_Calculate();
+    }
+}
+
+void SPWM_Calculate(){
+    static unsigned int iu_tmp = 0;
+    unsigned int iu, iv, iw;
+
+    unsigned int point = 0;
+    if (Fc_Change_Flag == 1) iu_tmp = 0;
+
+    //U_TMP
+    for (; iu_tmp < M, point < POINT_PER_TIME; iu_tmp++, point++) {
+        IntervalTimer_UA_Tmp[iu_tmp] = (unsigned int) ((0.25 - a_m * sin(2 * PI * iu_tmp / M)) * CPU_CLOCK * 1000000 / Fc);
+    }
+    __no_operation();
+    if (iu_tmp >= M) {
+        SPWM_Calculation_Finished = 1;
+        //U
+        for (iu = 0; iu < M; iu++) {
+            IntervalTimer_UA[iu] = IntervalTimer_UA_Tmp[iu];
+        }
+        __no_operation();
+
+        //V
+        for (iu = 0, iv = iu + M / 3 ; iu < M,iv < M; iu++,iv++) {
+            IntervalTimer_UB[iv] = IntervalTimer_UA[iu];
+        }
+        for (iv = M / 3 - 1, iu = M - 1 ; iv > 0 ; iu--,iv--) {
+            IntervalTimer_UB[iv] = IntervalTimer_UA[iu];
+        }
+        IntervalTimer_UB[0] = IntervalTimer_UA[2 * M / 3];
+        __no_operation();
+
+        //W
+        for (iu = 0, iw = iu + 2 * M / 3 ; iu< M,iw < M; iu++,iw++) {
+            IntervalTimer_UC[iw] = IntervalTimer_UA[iu];
+        }
+        for (iw = 2 * M / 3 - 1, iu = M - 1 ; iw > 0 ; iu--,iw--) {
+            IntervalTimer_UC[iw] = IntervalTimer_UA[iu];
+        }
+        IntervalTimer_UC[0] = IntervalTimer_UA[M / 6];
+        __no_operation();
+
+    }
+
+    /*//W
+    for (iu = 0, iw = iu + 2 * M / 3 ; iu< M,iw < M; iu++,iw++) {
+        IntervalTimer_UC[iw] = IntervalTimer_UA[iu];
+    }
+    for (iw = 2 * M / 3 - 1, iu = M - 1 ; iw > 0 ; iu--,iw--) {
+        IntervalTimer_UC[iw] = IntervalTimer_UA[iu];
+    }
+    IntervalTimer_UC[0] = IntervalTimer_UA[M / 6];*/
+    //__no_operation();
 }
 
 #pragma vector=TIMERB1_VECTOR
 __interrupt void TIMERB1_ISR(void) {
     static unsigned int k = 1;
-    //unsigned int testeee = 0;
     switch (TBIV) {         //向量查询
         case 0x04: {         //捕获中断
             //_NOP();
             break;
         }
         case 0x0E: {
-            //testeee = TBR;
             TBCTL = TBSSEL_2 + MC_3 + TBCLR + TBIE;                 // SMCLK=20M, contmode, clear TBR
             //U
             TBCCR2 = IntervalTimer_UA[k];                           // CCR2 PWM Duty Cycle
@@ -122,20 +232,6 @@ __interrupt void TIMERB1_ISR(void) {
             break;
         }
     }
-}
-
-/**
- *  Change frequency of Triangle Wave to change the frequency and amplitude of output sine wave.
- *  Fc range from 5000 to 20000 Hz
- */
-void SPWM_Change_Freq(unsigned int freq) {
-    Fc = freq;
-    Fc_Change_Flag = 1;
-}
-
-
-void SPWM_Stop() {
-    TBCTL &= ~TBIE;
 }
 
 /*
