@@ -35,6 +35,10 @@ enum motor_state {
     MOTOR_WORKING, MOTOR_STOPPED
 };
 
+/*unsigned int */
+float voltageArray[50] =  {0};
+unsigned int voltageArrayIndex = 0;
+
 unsigned int freq_periodStart = 0;
 unsigned int freq_pulseEnd = 0;
 unsigned int freq_periodEnd = 0;
@@ -42,6 +46,8 @@ unsigned char freq_overflow = 0;             //防止溢出
 unsigned char cap_flag = 0;
 volatile float frequency;
 volatile float voltage;
+
+unsigned int tri_frequency = Fc_Default;
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 unsigned int standbyPressure = DEFAULT_STANDBY_PRESSURE;
@@ -53,7 +59,7 @@ unsigned char lcd_twinkle_cursor = 0;
 unsigned char lcd_twinkle_num = 0;
 unsigned char pid_calculate_num = 0;
 
-const unsigned char line1[16] = {"恒压供水系统"};
+const unsigned char line1[16] = {"FC  "};
 const unsigned char line2[16] = {"待机压力："};
 const unsigned char line3[16] = {"供水压力："};
 const unsigned char line41[8] = {"水压"};
@@ -171,6 +177,38 @@ __interrupt void Timer_A(void) {              // 1s溢出中断
     _NOP();
 }
 
+#pragma vector = TIMER0_A1_VECTOR
+__interrupt void Timer_A1(void) {             // 10ms溢出中断
+    /*0Eh Timer overflow TAxCTL TAIFG Lowest*/
+    switch (TA0IV) {
+        case 0x0E: {
+            scan_key();
+            lcd_twinkle_num++;
+            voltage = ADC();
+            voltageArray[voltageArrayIndex] = voltage;
+            voltageArrayIndex ++;
+            if (voltageArrayIndex >= 50) voltageArrayIndex = 0;
+            if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {
+                lcd_twinkle_num = 0;
+                if (setting_stage == NORMAL) LCD_Show_Update();
+                else LCD_Twinkle_Update();
+            }
+
+            if (pid_calculate_num >= PID_CALCULATE_FREQ) {
+                pid_calculate_num = 0;
+                // TODO: PID calculation loop
+            }
+
+            SPWM_FreqChangeCheck();
+
+            //LCD_Show_Update();
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 #pragma vector=TIMER1_A1_VECTOR
 __interrupt void Timer_A1_Cap(void) {
     switch (TA1IV) {         //向量查询
@@ -206,35 +244,6 @@ __interrupt void Timer_A1_Cap(void) {
     }
 }
 
-#pragma vector = TIMER0_A1_VECTOR
-__interrupt void Timer_A1(void) {             // 5ms溢出中断
-    /*0Eh Timer overflow TAxCTL TAIFG Lowest*/
-    switch (TA0IV) {
-        case 0x0E: {
-            scan_key();
-            lcd_twinkle_num++;
-            voltage = ADC();
-
-            if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {
-                lcd_twinkle_num = 0;
-                if (setting_stage == NORMAL) LCD_Show_Update();
-                else LCD_Twinkle_Update();
-            }
-
-            if (pid_calculate_num >= PID_CALCULATE_FREQ) {
-                pid_calculate_num = 0;
-                // TODO: PID calculation loop
-            }
-
-            SPWM_FreqChangeCheck();
-
-            //LCD_Show_Update();
-            break;
-        }
-        default:
-            break;
-    }
-}
 
 void opr_key(unsigned char key_num) {
     switch (key_num) {
@@ -280,6 +289,11 @@ void opr_key(unsigned char key_num) {
                     workingPressure += 1;
                     break;
                 }
+                case NORMAL: {
+                    tri_frequency += 500;
+                    SPWM_Change_Freq(tri_frequency);
+                    break;
+                }
                 default:
                     break;
 
@@ -320,6 +334,11 @@ void opr_key(unsigned char key_num) {
                         workingPressure -= 1;
                     break;
                 }
+                case NORMAL: {
+                    tri_frequency -= 500;
+                    SPWM_Change_Freq(tri_frequency);
+                    break;
+                }
                 default:
                     break;
             }
@@ -328,12 +347,12 @@ void opr_key(unsigned char key_num) {
         case 4: {                       /*抽水系统启动/停止*/
             switch (motor_stage) {
                 case MOTOR_STOPPED: {
-                    SPWM_Init();
+                    SPWM_GPIO_INIT();
                     motor_stage = MOTOR_WORKING;
                     break;
                 }
                 case MOTOR_WORKING: {
-                    SPWM_Stop();
+                    SPWM_GPIO_OFF();
                     motor_stage = MOTOR_STOPPED;
                     break;
                 }
@@ -528,6 +547,9 @@ void LCD_Twinkle_Update() {
         }
     }
 
+    sprintf(displayCache,"%04d",tri_frequency);
+    LCD_Show(1, 2, displayCache);
+
     waterPressure = (unsigned int) (voltage * 10);
     LCD_Show_Get_Data(waterPressure);
     LCD_Show(4, 2, displayCache);
@@ -540,6 +562,9 @@ void LCD_Twinkle_Update() {
 void LCD_Show_Update() {
     unsigned int waterFlow = 0;
     unsigned int waterPressure = 0;
+
+    sprintf(displayCache,"%04d",tri_frequency);
+    LCD_Show(1, 2, displayCache);
 
     LCD_Show_Get_Data(standbyPressure);
     LCD_Show(2, 5, displayCache);
@@ -567,9 +592,10 @@ int main(void) {
     LCD_Init();
     LCD_Init_Show();
 
-    //_NOP();
+    _NOP();
     SPWM_Init();
-    //_NOP();
+    //SPWM_GPIO_INIT();
+    _NOP();
     initTimerA0();
 
 
