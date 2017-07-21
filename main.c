@@ -14,7 +14,7 @@ int main(void){
 	WDTCTL = WDTPW | WDTHOLD;	// stop watchdog timer
 	int count=0;
 	PID_init(200,180);
-	while(PIDFreq.err>0.5)
+	while(abs(PIDFreq.err)>0.5)
 	{
         PID_realize();
         //printf("%f\n",speed);
