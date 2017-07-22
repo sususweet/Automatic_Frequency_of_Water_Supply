@@ -122,36 +122,6 @@ signed int ADS1118_WriteSPI(unsigned int config, unsigned char mode)
     return msb;
 }
 
-float Power10(unsigned int i){       //递归计算10的i次幂
-
-    if(i) {
-        float tRes = Power10(i>>1);
-        return tRes * ( (i & 0x1)? tRes * 10.0f : tRes );      //i转化二进制逻辑尺使用
-    }
-    else {
-        return 1.0f;       //递归终结，10的0次幂为1
-    }
-}
-
-float ResX(float a, unsigned int x) {
-    float tPower10 = Power10(x);
-    if(a < 0)
-    {
-        tPower10 = -tPower10;       //如果是负数，添个负号
-    }
-    a = (a * tPower10) + 0.5f;  //负数会先被正过来
-    return (int)a / tPower10;  //最后再负回去
-}
-
-float ResX2(float a) {
-    float tPower10 = 100;
-    if(a < 0) {
-        tPower10 = -tPower10;       //如果是负数，添个负号
-    }
-    a = (a * tPower10) + 0.5f;  //负数会先被正过来
-    return (int)a / tPower10;  //最后再负回去
-}
-
 /*
  * do ADC once and return a float as Capture_voltage
  */
@@ -162,14 +132,13 @@ float ADC(void)
     ADS1118_ADS_Config(0xC3E3);                          //Only Select AIN1,860SPS,+-4.096V scan Capture_voltage range;
 
     ADC_Result = ADS1118_ADS_Read();                      // Read data from ch1,the last time result
-    if (ADC_Result >= 0x8000){
+    if (ADC_Result >= 0x8000)
+    {
         ADC_Result = 0xFFFF - ADC_Result;
-        //Voltage_ch1 = (float) (ADC_Result * (-1.0) / 32768 * 4.096);
-        Voltage_ch1 = 0;
+        Voltage_ch1 = (float) (ADC_Result * (-1.0) / 32768 * 4.096);
     }
     else
         Voltage_ch1 = (float) (ADC_Result * 1.0 / 32768 * 4.096);
 
-    Voltage_ch1 = ResX2(Voltage_ch1);
     return Voltage_ch1;
 }

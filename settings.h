@@ -21,11 +21,10 @@
 #define Voltage_to_Fc(pressure)  (unsigned int) (pressure/1000*402100 + 5391)
 #define Fc_to_Pressure(Fc)  (unsigned int) ((Fc*2.141e-6 - 0.01011) * 1000)*/
 
-//#define Voltage_to_Fc(voltage) (int) (voltage * 6849 + 3651)
-#define Voltage_to_Fc(voltage) (int) (voltage * 6265 + 4230)
-#define Voltage_to_Pressure_Show(voltage) (float) ((0.018*voltage - 0.00393)  * 1000 )
+#define Voltage_to_Fc(voltage) (unsigned int) (voltage * 6849 + 3651)
+#define Voltage_to_Pressure_Show(voltage) (float) ((0.018*voltage - 0.0035)  * 1000 )
 #define Voltage_to_Pressure(voltage) (float) ((0.018*voltage)  * 1000 )
-#define Pressure_to_Fc(pressure)  (unsigned int) ((((float)pressure) + 3.93)/1000*402100 + 5391)
+#define Pressure_to_Fc(pressure)  (unsigned int) ((((float)pressure) - 3.5)/1000*402100 + 5391)
 #define Fc_to_Pressure(Fc)  (unsigned int) ((Fc*2.141e-6 - 0.01011) * 1000)
 
 

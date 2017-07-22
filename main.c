@@ -19,14 +19,14 @@
 #define NONE_KEY_CODE 0xFF
 #define NONE_KEY_NUM 0
 #define LCD_TWINKLE_FREQ 50    /*LCD闪烁周期 500ms*/
-#define PID_CALCULATE_FREQ 200  /*PID计算周期 2s*/
+#define PID_CALCULATE_FREQ 200  /*PID计算周期 1s*/
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 #define MAX_STANDBY_PRESSURE Fc_to_Pressure(Max_Fc) * 10
 #define MAX_WORKING_PRESSURE Fc_to_Pressure(Max_Fc) * 10
 #define MIN_WORKING_PRESSURE Fc_to_Pressure(Min_Fc) * 10
 #define DEFAULT_STANDBY_PRESSURE 0
-#define DEFAULT_WORKING_PRESSURE 80
+#define DEFAULT_WORKING_PRESSURE 100
 /*注释结束*/
 
 #define Max_Fc 12000
@@ -46,8 +46,6 @@ enum motor_state {
 /*unsigned int */
 float pressureArray[200] =  {0};
 unsigned int pressureArrayIndex = 0;
-float VoltageArray[200] =  {0};
-unsigned int VoltageArrayIndex = 0;
 float frequencyArray[50] =  {0};
 unsigned int frequencyArrayIndex = 0;
 unsigned int FcArray[50] =  {0};
@@ -161,19 +159,12 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
             if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
                  Capture_voltage = ADC();
                  lcd_twinkle_num = 0;
-
                  pressureArray[pressureArrayIndex] = Voltage_to_Pressure_Show(Capture_voltage);
                  pressureArrayIndex ++;
                  if (pressureArrayIndex >= 200) {
                      pressureArrayIndex = 0;
                      _NOP();
                  }
-                VoltageArray[VoltageArrayIndex] = Capture_voltage;
-                VoltageArrayIndex ++;
-                if (VoltageArrayIndex >= 200) {
-                    VoltageArrayIndex = 0;
-                    _NOP();
-                }
                  if (setting_stage == NORMAL) LCD_Show_Update();
                  else LCD_Twinkle_Update();
              }
@@ -679,7 +670,7 @@ void LCD_Show_Update() {
  */
 void Change_Fc_PID(){
     PID_realize();
-    Sent_Fc = (unsigned int) PIDFreq.output;
+    Sent_Fc = Pressure_to_Fc(PIDFreq.output);
     if(Sent_Fc > Max_Fc){
         Sent_Fc = Fc_Default;
     }
