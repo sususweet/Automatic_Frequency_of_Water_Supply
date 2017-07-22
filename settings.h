@@ -10,6 +10,23 @@
 #define Delay_us(x)       __delay_cycles((unsigned int)x*CPU_CLOCK)                 // Unit us
 #define Delay_ms(x)       __delay_cycles(CPU_CLOCK*(unsigned int)x*1000)            // Unit ms
 
+/**
+ * Units:
+ * Pressure: kPa
+ * Voltage: V
+ * Fc: Hz
+ * */
+/*#define Voltage_to_Fc(voltage) (unsigned int) (voltage * 6849 + 3651)
+#define Voltage_to_Pressure(voltage) (float) ((0.018*voltage)  * 1000)
+#define Pressure_to_Fc(pressure)  (unsigned int) (pressure/1000*402100 + 5391)
+#define Fc_to_Pressure(Fc)  (unsigned int) ((Fc*2.141e-6 - 0.01011) * 1000)*/
+
+#define Voltage_to_Fc(voltage) (unsigned int) (voltage * 6849 + 3651)
+#define Voltage_to_Pressure(voltage) (float) ((0.018*voltage)  * 1000)
+#define Pressure_to_Fc(pressure)  (unsigned int) (((float)pressure)/1000*402100 + 5391)
+#define Fc_to_Pressure(Fc)  (unsigned int) ((Fc*2.141e-6 - 0.01011) * 1000)
+
+
 /*#define CPU_CLOCK       8000000
 #define Delay_us(us)    __delay_cycles(CPU_CLOCK/1000000*(us))
 #define Delay_ms(ms)    __delay_cycles(CPU_CLOCK/1000*(ms))*/

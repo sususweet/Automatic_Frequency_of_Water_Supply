@@ -23,30 +23,32 @@ extern volatile float Capture_voltage;
 void PID_init(){
     //printf("PID_init begin \n");
     // pid* pidfre;
-    PIDFreq.err= 0.0;
+    PIDFreq.err= 0;
     PIDFreq.err_last= 0;
     PIDFreq.freq = 0;
 
     PIDFreq.integral=(float)(0.0);
     //比例系数 积分系数 微分系数
-    PIDFreq.Kp=(float)(0.4);
-    PIDFreq.Ki=(float)(0.2);
-    PIDFreq.Kd=(float)(0.2);
+    PIDFreq.Kp=(float)(0.2);
+    PIDFreq.Ki=(float)(0.0);
+    PIDFreq.Kd=(float)(0.0);
     //printf("PID_init end \n");
 }
 
 void PID_realize() {
-    float index;
+    float index;        //index: 变积分系数
     float deta;
+    unsigned int Actual_Fc;
     /********  vadc转变成频率 ********/
-    PIDFreq.Actualfreq = (unsigned int) (Capture_voltage * 6849 + 3651);
-    PIDFreq.err = Set_Fc - PIDFreq.Actualfreq;   //更新err
+    Actual_Fc = Voltage_to_Fc(Capture_voltage);
+    //Actual_Fc = (unsigned int) (Capture_voltage * 6849 + 3651);
+    PIDFreq.err = Set_Fc - Actual_Fc;   //更新err
 
     unsigned int vadc_max = Set_Fc;
-    unsigned int vadc_min=vadc_max-vadc_max/10;
-    unsigned int vadc_diff=vadc_max-vadc_min;
+    unsigned int vadc_min = vadc_max-vadc_max/10;
+    unsigned int vadc_diff = vadc_max-vadc_min;
 
-    if (fabsf(PIDFreq.err) >= vadc_max){           //变积分过程  vadc_max和min的值如何设定？
+    /*if (fabsf(PIDFreq.err) >= vadc_max){           //变积分过程  vadc_max和min的值如何设定？
         index = 0.0;
     } else if (fabsf(PIDFreq.err) <= vadc_min) {
         index = 1.0;
@@ -54,15 +56,17 @@ void PID_realize() {
     } else {
         index = (vadc_max - PIDFreq.err) / vadc_diff;
         PIDFreq.integral += PIDFreq.err;
-    }
+    }*/
 
-    if (fabsf(PIDFreq.err) >= err_max){           //比例环节的改进
+    /*if (fabsf(PIDFreq.err) >= err_max){           //比例环节的改进
         deta = 1;
     } else {
         deta = kai;
-    }
+    }*/
+    deta = 1;
+    index = 0;
 
-    PIDFreq.freq = (unsigned int) (deta * (PIDFreq.Kp * PIDFreq.err + pid_time * index * PIDFreq.Ki * PIDFreq.integral + PIDFreq.Kd * (PIDFreq.err - PIDFreq.err_last) / pid_time));
+    PIDFreq.freq = Actual_Fc + (int) (deta * (PIDFreq.Kp * PIDFreq.err + pid_time * index * PIDFreq.Ki * PIDFreq.integral + PIDFreq.Kd * (PIDFreq.err - PIDFreq.err_last) / pid_time));
 
     PIDFreq.err_last = PIDFreq.err;
 }

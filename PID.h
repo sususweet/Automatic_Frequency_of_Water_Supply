@@ -11,16 +11,14 @@
 typedef struct _pid pid;
 
 struct _pid{
-    unsigned int Setfreq;            //定义设定值
-    unsigned int Actualfreq;         //定义实际值
-    float err;                 //定义偏差值
-    float err_last;            //定义上一个偏差值
+    //unsigned int Setfreq;            //定义设定值
+   // unsigned int Actualfreq;         //定义实际值
+    int err;                 //定义偏差值
+    int err_last;            //定义上一个偏差值
     float Kp,Ki,Kd;            //定义比例、积分、微分系数
     unsigned int freq;             //定义电压值（控制执行器的变量）
     float integral;            //定义积分值
 };
-
-
 
 void PID_init();
 void PID_realize();

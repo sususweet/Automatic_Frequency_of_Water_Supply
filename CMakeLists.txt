@@ -18,6 +18,8 @@ set(SOURCE_FILES settings.h
         frequency_capture.h
         PID.c
         PID.h
+        Clock.c
+        Clock.h
         in430.h
         msp430f5438a.h)
 
