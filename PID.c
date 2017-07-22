@@ -10,14 +10,14 @@
 #include "PID.h"
 #include "math.h"
 
-#define err_max 100
+#define err_max 2.0
 #define err_min 80
 #define pid_time 2
-#define kai 0.5    // 0<kai<1
+#define kai 0.2    // 0<kai<1
 
 pid PIDFreq;
 
-extern unsigned int Set_Fc;
+extern float Set_Pressure;
 extern volatile float Capture_voltage;
 
 void PID_init(){
@@ -25,12 +25,12 @@ void PID_init(){
     // pid* pidfre;
     PIDFreq.err= 0;
     PIDFreq.err_last= 0;
-    PIDFreq.freq = 0;
+    PIDFreq.output = 0;
 
     PIDFreq.integral=(float)(0.0);
     //比例系数 积分系数 微分系数
-    PIDFreq.Kp=(float)(0.2);
-    PIDFreq.Ki=(float)(0.0);
+    PIDFreq.Kp=(float)(1.6);
+    PIDFreq.Ki=(float)(0.3);
     PIDFreq.Kd=(float)(0.0);
     //printf("PID_init end \n");
 }
@@ -38,17 +38,19 @@ void PID_init(){
 void PID_realize() {
     float index;        //index: 变积分系数
     float deta;
-    unsigned int Actual_Fc;
+    float Actual_Pressure;
+    float vadc_max, vadc_min, vadc_diff;
+
     /********  vadc转变成频率 ********/
-    Actual_Fc = Voltage_to_Fc(Capture_voltage);
+    Actual_Pressure = Voltage_to_Pressure(Capture_voltage);
     //Actual_Fc = (unsigned int) (Capture_voltage * 6849 + 3651);
-    PIDFreq.err = Set_Fc - Actual_Fc;   //更新err
+    PIDFreq.err = Set_Pressure - Actual_Pressure;   //更新err
 
-    unsigned int vadc_max = Set_Fc;
-    unsigned int vadc_min = vadc_max-vadc_max/10;
-    unsigned int vadc_diff = vadc_max-vadc_min;
+   /* vadc_max = Set_Pressure;
+    vadc_min = vadc_max-vadc_max/10;
+    vadc_diff = vadc_max-vadc_min;
 
-    /*if (fabsf(PIDFreq.err) >= vadc_max){           //变积分过程  vadc_max和min的值如何设定？
+    if (fabsf(PIDFreq.err) >= vadc_max){           //变积分过程  vadc_max和min的值如何设定？
         index = 0.0;
     } else if (fabsf(PIDFreq.err) <= vadc_min) {
         index = 1.0;
@@ -58,15 +60,18 @@ void PID_realize() {
         PIDFreq.integral += PIDFreq.err;
     }*/
 
-    /*if (fabsf(PIDFreq.err) >= err_max){           //比例环节的改进
+    if (fabsf(PIDFreq.err) > err_max){           //比例环节的改进
         deta = 1;
     } else {
         deta = kai;
-    }*/
-    deta = 1;
+        _NOP();
+    }
+    //index = 0.2;
     index = 0;
+    PIDFreq.integral += PIDFreq.err;
 
-    PIDFreq.freq = Actual_Fc + (int) (deta * (PIDFreq.Kp * PIDFreq.err + pid_time * index * PIDFreq.Ki * PIDFreq.integral + PIDFreq.Kd * (PIDFreq.err - PIDFreq.err_last) / pid_time));
+
+    PIDFreq.output = Actual_Pressure + (deta * (PIDFreq.Kp * PIDFreq.err + pid_time * index * PIDFreq.Ki * PIDFreq.integral + PIDFreq.Kd * (PIDFreq.err - PIDFreq.err_last) / pid_time));
 
     PIDFreq.err_last = PIDFreq.err;
 }

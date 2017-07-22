@@ -19,7 +19,7 @@
 #define NONE_KEY_CODE 0xFF
 #define NONE_KEY_NUM 0
 #define LCD_TWINKLE_FREQ 50    /*LCD闪烁周期 500ms*/
-#define PID_CALCULATE_FREQ 100  /*PID计算周期 1s*/
+#define PID_CALCULATE_FREQ 200  /*PID计算周期 1s*/
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 #define MAX_STANDBY_PRESSURE Fc_to_Pressure(Max_Fc) * 10
@@ -29,9 +29,9 @@
 #define DEFAULT_WORKING_PRESSURE 100
 /*注释结束*/
 
-#define Max_Fc 20000
+#define Max_Fc 12000
 //#define Max_Fc 11955
-#define Min_Fc 6955
+#define Min_Fc 5000
 
 extern pid PIDFreq;
 
@@ -44,8 +44,8 @@ enum motor_state {
 };
 
 /*unsigned int */
-float voltageArray[50] =  {0};
-unsigned int voltageArrayIndex = 0;
+float pressureArray[200] =  {0};
+unsigned int pressureArrayIndex = 0;
 float frequencyArray[50] =  {0};
 unsigned int frequencyArrayIndex = 0;
 unsigned int FcArray[50] =  {0};
@@ -66,6 +66,7 @@ unsigned int Sent_Fc = Fc_Default;
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 unsigned int standbyPressure = DEFAULT_STANDBY_PRESSURE;
 unsigned int workingPressure = DEFAULT_WORKING_PRESSURE;
+float Set_Pressure = 0;
 
 unsigned char setting_stage = NORMAL;
 unsigned char motor_stage = MOTOR_STOPPED;
@@ -131,8 +132,11 @@ void scan_key() {
             }
             break;
         }
-        default:
+        default:{
+            key_state = KEY_STATE_RELEASE;
             break;
+        }
+
     }
 }
 
@@ -149,18 +153,27 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
         case 0x0E: {
             //__bis_SR_register(GIE);                    // Enable all interrupt.
             scan_key();
-            pid_calculate_num++;
+
             lcd_twinkle_num++;
 
             if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
                  Capture_voltage = ADC();
                  lcd_twinkle_num = 0;
-                 voltageArray[voltageArrayIndex] = Capture_voltage;
-                 voltageArrayIndex ++;
-                 if (voltageArrayIndex >= 50) voltageArrayIndex = 0;
+                 pressureArray[pressureArrayIndex] = Voltage_to_Pressure(Capture_voltage);
+                 pressureArrayIndex ++;
+                 if (pressureArrayIndex >= 200) {
+                     pressureArrayIndex = 0;
+                     _NOP();
+                 }
                  if (setting_stage == NORMAL) LCD_Show_Update();
                  else LCD_Twinkle_Update();
              }
+
+            if (motor_stage == MOTOR_WORKING){
+                pid_calculate_num++;
+            }else{
+                pid_calculate_num = 0;
+            }
 
             if (pid_calculate_num >= PID_CALCULATE_FREQ) {
                 pid_calculate_num = 0;
@@ -225,6 +238,15 @@ __interrupt void Timer_A1_Cap(void) {
 
 void opr_key(unsigned char key_num) {
     switch (key_num) {
+        case 8:{
+            Change_Fc_PID();
+            FCChangeFlag = 1;
+            FcArray[FcArrayIndex] = Sent_Fc;
+            FcArrayIndex ++;
+            if (FcArrayIndex >= 50) FcArrayIndex = 0;
+            SPWM_Change_Freq(Sent_Fc);
+            break;
+        }
         case 1: {
             LCD_Show_Update();
             lcd_twinkle_cursor = 0;
@@ -358,13 +380,15 @@ void opr_key(unsigned char key_num) {
                 case MOTOR_STOPPED: {
                     SPWM_GPIO_INIT();
                     SPWM_CLOCK_INIT();
+                    Set_Pressure = (float) (1.0 * workingPressure / 10);
+                    Sent_Fc = Set_Fc = Pressure_to_Fc(workingPressure / 10);
 
-                    Set_Fc = Pressure_to_Fc(workingPressure / 10);
-                    Change_Fc_PID();
+
+                    /*Change_Fc_PID();
                     FCChangeFlag = 1;
                     FcArray[FcArrayIndex] = Sent_Fc;
                     FcArrayIndex ++;
-                    if (FcArrayIndex >= 50) FcArrayIndex = 0;
+                    if (FcArrayIndex >= 50) FcArrayIndex = 0;*/
                     //Set_Fc = Sent_Fc = Pressure_to_Fc(workingPressure / 10);
 
                     SPWM_Change_Freq(Sent_Fc);
@@ -646,14 +670,12 @@ void LCD_Show_Update() {
  */
 void Change_Fc_PID(){
     PID_realize();
-    if(PIDFreq.freq > Max_Fc){
-        Sent_Fc = Max_Fc;
+    Sent_Fc = Pressure_to_Fc(PIDFreq.output);
+    if(Sent_Fc > Max_Fc){
+        Sent_Fc = Fc_Default;
     }
-    else if (PIDFreq.freq < Min_Fc){
+    else if (Sent_Fc < Min_Fc){
         Sent_Fc = Min_Fc;
-    }
-    else {
-        Sent_Fc = PIDFreq.freq;
     }
 }
 
