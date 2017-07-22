@@ -159,7 +159,7 @@ __interrupt void Timer_A1(void) {             // 10msÒç³öÖÐ¶Ï
             if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
                  Capture_voltage = ADC();
                  lcd_twinkle_num = 0;
-                 pressureArray[pressureArrayIndex] = Voltage_to_Pressure(Capture_voltage);
+                 pressureArray[pressureArrayIndex] = Voltage_to_Pressure_Show(Capture_voltage);
                  pressureArrayIndex ++;
                  if (pressureArrayIndex >= 200) {
                      pressureArrayIndex = 0;
@@ -612,7 +612,7 @@ void LCD_Twinkle_Update() {
         FCChangeFlag = 0;
     }
 
-    sprintf(displayCache,"%4.2f",Voltage_to_Pressure(Capture_voltage));
+    sprintf(displayCache,"%4.2f",Voltage_to_Pressure_Show(Capture_voltage));
     /*waterPressure = (unsigned int) (Capture_voltage * 10);
     LCD_Show_Get_Data(waterPressure);*/
     LCD_Show(4, 2, displayCache);
@@ -654,7 +654,7 @@ void LCD_Show_Update() {
         workingPressureChangeFlag = 0;
     }
 
-    sprintf(displayCache,"%4.2f",Voltage_to_Pressure(Capture_voltage));
+    sprintf(displayCache,"%4.2f",Voltage_to_Pressure_Show(Capture_voltage));
    // sprintf(displayCache,"%6.5f",Capture_voltage);
     //waterPressure = (unsigned int) (Capture_voltage * 10);
     //LCD_Show_Get_Data(waterPressure);

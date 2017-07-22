@@ -42,7 +42,7 @@ void PID_realize() {
     float vadc_max, vadc_min, vadc_diff;
 
     /********  vadc转变成频率 ********/
-    Actual_Pressure = Voltage_to_Pressure(Capture_voltage);
+    Actual_Pressure = Voltage_to_Pressure_Show(Capture_voltage);
     //Actual_Fc = (unsigned int) (Capture_voltage * 6849 + 3651);
     PIDFreq.err = Set_Pressure - Actual_Pressure;   //更新err
 
