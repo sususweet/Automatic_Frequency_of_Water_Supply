@@ -31,7 +31,7 @@
 
 #define Max_Fc 12000
 //#define Max_Fc 11955
-#define Min_Fc 5000
+#define Min_Fc 5500
 
 extern pid PIDFreq;
 
@@ -672,7 +672,7 @@ void Change_Fc_PID(){
     PID_realize();
     Sent_Fc = Pressure_to_Fc(PIDFreq.output);
     if(Sent_Fc > Max_Fc){
-        Sent_Fc = Fc_Default;
+        Sent_Fc = Max_Fc;
     }
     else if (Sent_Fc < Min_Fc){
         Sent_Fc = Min_Fc;
