@@ -20,8 +20,9 @@
 #define NONE_KEY_CODE 0xFF
 #define NONE_KEY_NUM 0
 #define LCD_TWINKLE_FREQ 40    /*LCD闪烁周期 400ms*/
-#define LCD_PRESSURE_UPDATE 100    /*LCD闪烁周期 500ms*/
-#define PID_CALCULATE_FREQ 160  /*PID计算周期 1.6s*/
+#define LCD_PRESSURE_UPDATE 150    /*LCD闪烁周期 500ms*/
+#define PID_CALCULATE_FREQ 200  /*PID计算周期 1.6s*/
+//#define PID_WAITING_TIME 160
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
 #define MAX_STANDBY_PRESSURE Fc_to_Pressure(Max_Fc) * 10
@@ -31,9 +32,9 @@
 #define DEFAULT_WORKING_PRESSURE 100
 /*注释结束*/
 
-#define Max_Fc 11600
+#define Max_Fc 10956
 //#define Max_Fc 11955
-#define Min_Fc 7300
+#define Min_Fc 8000
 
 extern pid PIDFreq;
 
@@ -50,7 +51,7 @@ float pressureArray[200] =  {0};
 unsigned int pressureArrayIndex = 0;
 float frequencyArray[50] =  {0};
 unsigned int frequencyArrayIndex = 0;
-unsigned int FcArray[50] =  {0};
+unsigned int FcArray[200] =  {0};
 unsigned int FcArrayIndex = 0;
 
 unsigned int freq_periodStart = 0;
@@ -76,6 +77,8 @@ unsigned char lcd_twinkle_cursor = 0;
 unsigned char lcd_twinkle_num = 0;
 unsigned char lcd_pressure_num = LCD_PRESSURE_UPDATE;
 unsigned char pid_calculate_num = 0;
+//unsigned char pid_waiting_num = 0;
+//unsigned char pid_waiting_flag = 1;
 
 unsigned char standbyPressureChangeFlag = 1;
 unsigned char workingPressureChangeFlag = 1;
@@ -159,6 +162,8 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
 
             lcd_twinkle_num++;
             lcd_pressure_num++;
+            //pid_waiting_num++;
+
             if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
                  Capture_voltage = ADC();
                  lcd_twinkle_num = 0;
@@ -174,9 +179,16 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
 
             if (motor_stage == MOTOR_WORKING){
                 pid_calculate_num++;
+                //if (pid_waiting_num >= PID_WAITING_TIME){
+                //    pid_waiting_flag = 0;
+                //}
             }else{
                 pid_calculate_num = 0;
+                //pid_waiting_num = 0;
+                //pid_waiting_flag = 1;
             }
+
+            //if (pid_waiting_flag == 0) pid_calculate_num++;
 
             if (pid_calculate_num >= PID_CALCULATE_FREQ) {
                 pid_calculate_num = 0;
@@ -185,7 +197,7 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
                     FCChangeFlag = 1;
                     FcArray[FcArrayIndex] = Sent_Fc;
                     FcArrayIndex ++;
-                    if (FcArrayIndex >= 50) FcArrayIndex = 0;
+                    if (FcArrayIndex >= 200) FcArrayIndex = 0;
                     SPWM_Change_Freq(Sent_Fc);
                 }
 
@@ -205,26 +217,34 @@ __interrupt void Timer_A1_Cap(void) {
     switch (TA1IV) {         //向量查询
         case 0x04: {         //捕获中断
             if (TA1CCTL2 & CM0) {//捕获到上升沿
-                TA1CCTL2 = (TA1CCTL2 & (~CM0)) | CM1; //更变设置为下降沿触发
                 if (cap_flag == 0) {
+                    TA1CCTL2 = (TA1CCTL2 & (~CM0)) | CM1; //更变设置为下降沿触发
                     freq_periodStart = TA1CCR2; //记录初始时间
                     cap_flag = 1; //开始一个周期的捕获
                 } else {
                     freq_periodEnd = TA1CCR2;   //一个周期的时间
                     if (!freq_overflow) {
-                        frequency = 32768 / (freq_periodEnd - freq_periodStart);
-                        frequencyArray[frequencyArrayIndex] = frequency;
-                        frequencyArrayIndex ++;
-                        if (frequencyArrayIndex >= 50) frequencyArrayIndex = 0;
-                    } else { freq_overflow = 0; }
+                        freq_periodEnd -= freq_periodStart;
+                        if(freq_periodEnd>182) {
+                            frequency = 32768 / freq_periodEnd;
+                            frequencyArray[frequencyArrayIndex] = frequency;
+                            frequencyArrayIndex++;
+                            if (frequencyArrayIndex >= 50) frequencyArrayIndex = 0;
+                        }
+                    } else {
+                        freq_overflow = 0;
+                    }
                     cap_flag = 0;
                     //TA1CCTL2 &= ~CCIE;   //关捕获使能
                     //TA1CTL &= ~TAIE;     //关中断使能
                 }
-            } else if (TA1CCTL2 & CM1) { //==捕获到下降沿==
-                TA1CCTL2 = (TA1CCTL2 & (~CM1)) | CM0; //更变设置为上升沿触发
+            } else if (TA1CCTL2 & CM1) { //捕获到下降沿
                 if (cap_flag == 1) {
                     freq_pulseEnd = TA1CCR2; //记录脉冲宽度结束时间
+                    freq_pulseEnd-=freq_periodStart;
+                    if(freq_pulseEnd>92){       //脉冲宽度在允许范围内
+                        TA1CCTL2 = (TA1CCTL2 & (~CM1)) | CM0; //更变设置为上升沿触发
+                    }
                 }
             }
             break;
@@ -246,7 +266,7 @@ void opr_key(unsigned char key_num) {
             FCChangeFlag = 1;
             FcArray[FcArrayIndex] = Sent_Fc;
             FcArrayIndex ++;
-            if (FcArrayIndex >= 50) FcArrayIndex = 0;
+            if (FcArrayIndex >= 200) FcArrayIndex = 0;
             SPWM_Change_Freq(Sent_Fc);
             break;
         }
@@ -386,6 +406,10 @@ void opr_key(unsigned char key_num) {
                     Set_Pressure = (float) (1.0 * workingPressure / 10);
                     Sent_Fc = Set_Fc = Pressure_to_Fc(workingPressure / 10);
 
+                    PID_init();
+                    pid_calculate_num = 0;
+                    //pid_waiting_num = 0;
+                    //pid_waiting_flag = 1;
 
                     /*Change_Fc_PID();
                     FCChangeFlag = 1;
@@ -500,7 +524,7 @@ void opr_key(unsigned char key_num) {
 float GetPressure(float voltage){
     float target_pressure = 0;
     target_pressure = Voltage_to_Pressure_Show(voltage);
-    if(fabs(target_pressure-0)<=1e-7){
+    if(target_pressure <= 1e-7){
         target_pressure = 0;
     }
     return target_pressure;
@@ -626,11 +650,19 @@ void LCD_Twinkle_Update() {
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
-        sprintf(displayCache,"%.1f",Voltage_to_Pressure_Show(Capture_voltage));
+        displayCache[0] = ' ';
+        displayCache[1] = ' ';
+        displayCache[2] = ' ';
+        displayCache[3] = ' ';
+        displayCache[4] = '\0';
+        LCD_Show(4, 2, displayCache);
+        LCD_Show(4, 6, displayCache);
+
+        sprintf(displayCache,"%.1f", GetPressure(Capture_voltage));
         lcd_pressure_num = 0;
         LCD_Show(4, 2, displayCache);
 
-        sprintf(displayCache,"%.1f", frequency / 75);
+        sprintf(displayCache,"%.1f", frequency / 7.5);
         //waterFlow = (unsigned int) (frequency / 7.5 * 10);
         //LCD_Show_Get_Data(waterFlow);
         LCD_Show(4, 6, displayCache);
@@ -680,11 +712,20 @@ void LCD_Show_Update() {
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
-        sprintf(displayCache,"%.1f",Voltage_to_Pressure_Show(Capture_voltage));
+        displayCache[0] = ' ';
+        displayCache[1] = ' ';
+        displayCache[2] = ' ';
+        displayCache[3] = ' ';
+        displayCache[4] = '\0';
+        LCD_Show(4, 2, displayCache);
+        LCD_Show(4, 6, displayCache);
+
+
+        sprintf(displayCache,"%.1f", GetPressure(Capture_voltage));
         lcd_pressure_num = 0;
         LCD_Show(4, 2, displayCache);
 
-        sprintf(displayCache,"%.1f",frequency / 75);
+        sprintf(displayCache,"%.1f",frequency / 7.5);
         /*waterFlow = (unsigned int) (frequency / 7.5 * 10);
         LCD_Show_Get_Data(waterFlow);*/
         LCD_Show(4, 6, displayCache);
