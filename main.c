@@ -33,7 +33,7 @@
 
 #define Max_Fc 11600
 //#define Max_Fc 11955
-#define Min_Fc 7000
+#define Min_Fc 7300
 
 extern pid PIDFreq;
 
@@ -626,11 +626,11 @@ void LCD_Twinkle_Update() {
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
-        sprintf(displayCache,"%3.1f",Voltage_to_Pressure_Show(Capture_voltage));
+        sprintf(displayCache,"%.1f",Voltage_to_Pressure_Show(Capture_voltage));
         lcd_pressure_num = 0;
         LCD_Show(4, 2, displayCache);
 
-        sprintf(displayCache,"%3.1f", frequency / 75);
+        sprintf(displayCache,"%.1f", frequency / 75);
         //waterFlow = (unsigned int) (frequency / 7.5 * 10);
         //LCD_Show_Get_Data(waterFlow);
         LCD_Show(4, 6, displayCache);
@@ -680,11 +680,11 @@ void LCD_Show_Update() {
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
-        sprintf(displayCache,"%3.1f",Voltage_to_Pressure_Show(Capture_voltage));
+        sprintf(displayCache,"%.1f",Voltage_to_Pressure_Show(Capture_voltage));
         lcd_pressure_num = 0;
         LCD_Show(4, 2, displayCache);
 
-        sprintf(displayCache,"%3.1f",frequency / 75);
+        sprintf(displayCache,"%.1f",frequency / 75);
         /*waterFlow = (unsigned int) (frequency / 7.5 * 10);
         LCD_Show_Get_Data(waterFlow);*/
         LCD_Show(4, 6, displayCache);
