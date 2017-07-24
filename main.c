@@ -28,13 +28,10 @@
 #define MAX_STANDBY_PRESSURE Fc_to_Pressure(Max_Fc) * 10
 #define MAX_WORKING_PRESSURE Fc_to_Pressure(Max_Fc) * 10
 #define MIN_WORKING_PRESSURE Fc_to_Pressure(Min_Fc) * 10
-#define DEFAULT_STANDBY_PRESSURE 0
+#define DEFAULT_STANDBY_PRESSURE 80
 #define DEFAULT_WORKING_PRESSURE 100
 /*×¢ÊÍ½áÊø*/
-
-#define Max_Fc 10956
-//#define Max_Fc 11955
-#define Min_Fc 8000
+#define WATER_FLOW_THRESHOLD 4.0
 
 extern pid PIDFreq;
 
@@ -60,6 +57,7 @@ unsigned int freq_periodEnd = 0;
 unsigned char freq_overflow = 0;             //·ÀÖ¹Òç³ö
 unsigned char cap_flag = 0;
 volatile float frequency;
+float frequency_last;
 volatile float Capture_voltage;
 
 unsigned int Set_Fc = Fc_Default;
@@ -80,6 +78,7 @@ unsigned char pid_calculate_num = 0;
 //unsigned char pid_waiting_num = 0;
 //unsigned char pid_waiting_flag = 1;
 
+unsigned char water_flow_change_flag = 1;
 unsigned char standbyPressureChangeFlag = 1;
 unsigned char workingPressureChangeFlag = 1;
 unsigned char FCChangeFlag = 1;
@@ -193,6 +192,27 @@ __interrupt void Timer_A1(void) {             // 10msÒç³öÖÐ¶Ï
             if (pid_calculate_num >= PID_CALCULATE_FREQ) {
                 pid_calculate_num = 0;
                 if (motor_stage == MOTOR_WORKING){
+
+                    if (frequency / 7.5 < WATER_FLOW_THRESHOLD
+                        && frequency_last / 7.5 >= WATER_FLOW_THRESHOLD){
+                        water_flow_change_flag = 1;
+                    } else if (frequency / 7.5 >= WATER_FLOW_THRESHOLD
+                               && frequency_last / 7.5 < WATER_FLOW_THRESHOLD){
+                        water_flow_change_flag = 2;
+                    } else {
+                        water_flow_change_flag = 0;
+                    }
+
+                    if (water_flow_change_flag == 1){
+                        Set_Pressure = (float) (1.0 * standbyPressure / 10);
+                        Sent_Fc = Set_Fc = Pressure_to_Fc(standbyPressure / 10);
+                        water_flow_change_flag = 0;
+                    }else if(water_flow_change_flag == 2){
+                        Set_Pressure = (float) (1.0 * workingPressure / 10);
+                        Sent_Fc = Set_Fc = Pressure_to_Fc(workingPressure / 10);
+                        water_flow_change_flag = 0;
+                    }
+
                     Change_Fc_PID();
                     FCChangeFlag = 1;
                     FcArray[FcArrayIndex] = Sent_Fc;
@@ -226,6 +246,7 @@ __interrupt void Timer_A1_Cap(void) {
                     if (!freq_overflow) {
                         freq_periodEnd -= freq_periodStart;
                         if(freq_periodEnd>182) {
+                            frequency_last = frequency;
                             frequency = 32768 / freq_periodEnd;
                             frequencyArray[frequencyArrayIndex] = frequency;
                             frequencyArrayIndex++;
@@ -408,6 +429,7 @@ void opr_key(unsigned char key_num) {
 
                     PID_init();
                     pid_calculate_num = 0;
+                    water_flow_change_flag = 1;
                     //pid_waiting_num = 0;
                     //pid_waiting_flag = 1;
 
@@ -650,13 +672,18 @@ void LCD_Twinkle_Update() {
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
-        displayCache[0] = ' ';
+        /*displayCache[0] = ' ';
         displayCache[1] = ' ';
         displayCache[2] = ' ';
         displayCache[3] = ' ';
         displayCache[4] = '\0';
         LCD_Show(4, 2, displayCache);
-        LCD_Show(4, 6, displayCache);
+        LCD_Show(4, 6, displayCache);*/
+        displayCache[0] = ' ';
+        displayCache[1] = ' ';
+        displayCache[2] = '\0';
+        LCD_Show(4, 3, displayCache);
+        LCD_Show(4, 7, displayCache);
 
         sprintf(displayCache,"%.1f", GetPressure(Capture_voltage));
         lcd_pressure_num = 0;
@@ -714,11 +741,9 @@ void LCD_Show_Update() {
         //LCD_Show_Get_Data(waterPressure);
         displayCache[0] = ' ';
         displayCache[1] = ' ';
-        displayCache[2] = ' ';
-        displayCache[3] = ' ';
-        displayCache[4] = '\0';
-        LCD_Show(4, 2, displayCache);
-        LCD_Show(4, 6, displayCache);
+        displayCache[2] = '\0';
+        LCD_Show(4, 3, displayCache);
+        LCD_Show(4, 7, displayCache);
 
 
         sprintf(displayCache,"%.1f", GetPressure(Capture_voltage));
@@ -726,8 +751,8 @@ void LCD_Show_Update() {
         LCD_Show(4, 2, displayCache);
 
         sprintf(displayCache,"%.1f",frequency / 7.5);
-        /*waterFlow = (unsigned int) (frequency / 7.5 * 10);
-        LCD_Show_Get_Data(waterFlow);*/
+        //waterFlow = (unsigned int) (frequency / 7.5 * 10);
+        //LCD_Show_Get_Data(waterFlow);
         LCD_Show(4, 6, displayCache);
     }
     /*sprintf(displayCache,"%4.2f",Voltage_to_Pressure_Show(Capture_voltage));
@@ -746,7 +771,8 @@ void LCD_Show_Update() {
  */
 void Change_Fc_PID(){
     PID_realize();
-    Sent_Fc = Pressure_to_Fc(PIDFreq.output);
+    //Sent_Fc = Pressure_to_Fc(PIDFreq.output);
+    Sent_Fc = PIDFreq.output;
     if(Sent_Fc > Max_Fc){
         Sent_Fc = Max_Fc;
     }
@@ -756,7 +782,7 @@ void Change_Fc_PID(){
 }
 
 int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;       // stop watchdog timer
 
     initClock();
     ADS1118_GPIO_Init();           //initialize the GPIO
