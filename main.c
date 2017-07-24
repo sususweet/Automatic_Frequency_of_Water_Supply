@@ -31,7 +31,7 @@
 #define DEFAULT_STANDBY_PRESSURE 80
 #define DEFAULT_WORKING_PRESSURE 100
 /*×¢ÊÍ½áÊø*/
-#define WATER_FLOW_THRESHOLD 4.0
+#define WATER_FLOW_THRESHOLD 1.0
 
 extern pid PIDFreq;
 

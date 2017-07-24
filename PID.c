@@ -16,7 +16,7 @@
 #define kai 0.15    // 0<kai<1
 
 #define err_Mmax 4.0
-#define err_Mmid 1.5
+#define err_Mmid 2.0
 //#define err_Mmid 2.75
 #define err_Mmin 1.0
 
@@ -51,6 +51,8 @@ void PID_realize() {
     /********  vadc转变成频率 ********/
     Actual_Pressure = Voltage_to_Pressure_Show(Capture_voltage);
 
+    PIDFreq.err_last_last = PIDFreq.err_last;
+    PIDFreq.err_last = PIDFreq.err;
     PIDFreq.err =  Set_Pressure - Actual_Pressure;  //e(k)
 
     if (Actual_Pressure > 20.0 || Actual_Pressure < 2.0){
@@ -65,12 +67,12 @@ void PID_realize() {
 
     //Pressure_to_Fc(PIDFreq.output)
     if (fabsf(PIDFreq.err) > err_Mmax - 1.55 && PIDFreq.err > 0){          /*误差大于一定范围，实施开环控制*/
-        PIDFreq.output = Max_Fc;
-        //PIDFreq.output += 2000;
+        //PIDFreq.output = Max_Fc;
+        PIDFreq.output += 1000;
         PIDFreq.integral = 0;
     }else if (fabsf(PIDFreq.err) > err_Mmax - 1.55 && PIDFreq.err < 0){
-        PIDFreq.output = Min_Fc;
-        //PIDFreq.output -= 2000;
+        //PIDFreq.output = Min_Fc;
+        PIDFreq.output -= 1000;
         PIDFreq.integral = 0;
     }else{
         /*误差绝对值很小，此时加入积分，减小静态误差*/
@@ -88,15 +90,15 @@ void PID_realize() {
             PIDFreq.stable = 1;
             _NOP();
         }else{
-            if (fabsf(PIDFreq.err) > 0.8 && fabsf(PIDFreq.err - PIDFreq.err_last) > 1.1) PIDFreq.stable = 0;
+            if (fabsf(PIDFreq.err) > err_Mmin && fabsf(PIDFreq.err_last) > err_Mmin) PIDFreq.stable = 0;
             if (PIDFreq.stable == 0){
                 if (PIDFreq.err * err_change_rate > 0
                     || fabsf(err_change_rate) < 1e-5){                      /*误差向绝对值增大的方向变化*/
                     if(fabsf(PIDFreq.err) > err_Mmid){                      /*误差较大，实施较强控制*/
-                        deta = 0.80;                                        /*deta需要较大以实现快速控制*/
-                        index = 0;
+                        deta = 1.1;                                        /*deta需要较大以实现快速控制*/
+                        index = 0.01;
                     }else {                                                 /*误差绝对值本身并不是很大，实施一般控制*/
-                        deta = 0.6;
+                        deta = 0.35;
                         index = 0.01;
                         PIDFreq.integral += PIDFreq.err;
                     }
@@ -114,9 +116,9 @@ void PID_realize() {
                 }
 
 
-                PIDFreq.output =Pressure_to_Fc((float) (Actual_Pressure + deta * PIDFreq.Kp * err_change_rate
+                PIDFreq.output =Pressure_to_Fc((float) (Actual_Pressure + deta * PIDFreq.Kp * PIDFreq.err
                                                         + pid_time * index * PIDFreq.Ki * PIDFreq.integral
-                                                        + PIDFreq.Kd * (err_change_rate - err_change_rate_last) / pid_time));
+                                                        + PIDFreq.Kd * (err_change_rate - err_change_rate_last)));
 
             }
 
