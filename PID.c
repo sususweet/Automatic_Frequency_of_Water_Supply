@@ -16,9 +16,9 @@
 #define kai 0.15    // 0<kai<1
 
 #define err_Mmax 4.0
-#define err_Mmid 2.0
+#define err_Mmid 1.35
 //#define err_Mmid 2.75
-#define err_Mmin 1.0
+#define err_Mmin 0.8
 
 
 pid PIDFreq;
@@ -32,6 +32,8 @@ void PID_init(){
     PIDFreq.err_last_last = 0;
     PIDFreq.output = 0;
     PIDFreq.stable = 0;
+    PIDFreq.more_offset = 0;
+    PIDFreq.less_offset = 0;
     PIDFreq.integral=(float)(0.0);
     //比例系数 积分系数 微分系数
     PIDFreq.Kp=(float)(1.28);  //1.625
@@ -66,15 +68,24 @@ void PID_realize() {
     err_change_rate_last = (float) ((PIDFreq.err_last - PIDFreq.err_last_last) / pid_time);
 
     //Pressure_to_Fc(PIDFreq.output)
-    if (fabsf(PIDFreq.err) > err_Mmax - 1.55 && PIDFreq.err > 0){          /*误差大于一定范围，实施开环控制*/
-        //PIDFreq.output = Max_Fc;
-        PIDFreq.output += 1000;
-        PIDFreq.integral = 0;
-    }else if (fabsf(PIDFreq.err) > err_Mmax - 1.55 && PIDFreq.err < 0){
-        //PIDFreq.output = Min_Fc;
-        PIDFreq.output -= 1000;
-        PIDFreq.integral = 0;
+    if ((fabsf(PIDFreq.err) > err_Mmax - 1.55 || PIDFreq.less_offset == 1) && PIDFreq.err > 0){          /*误差大于一定范围，实施开环控制*/
+        PIDFreq.output = Max_Fc;
+        //PIDFreq.output += 1000;
+        if (PIDFreq.output >= Max_Fc) PIDFreq.output = Max_Fc;
+
+        PIDFreq.integral += PIDFreq.err;
+        PIDFreq.less_offset = 1;
+        //PIDFreq.integral = 0;
+    }else if ((fabsf(PIDFreq.err) > err_Mmax - 1.55 || PIDFreq.more_offset == 1) && PIDFreq.err < 0){
+        PIDFreq.output = Min_Fc;
+        //PIDFreq.output -= 1000;
+        if (PIDFreq.output <= Min_Fc) PIDFreq.output = Min_Fc;
+        PIDFreq.integral += PIDFreq.err;
+        PIDFreq.more_offset = 1;
+        //PIDFreq.integral = 0;
     }else{
+        PIDFreq.more_offset = 0;
+        PIDFreq.less_offset = 0;
         /*误差绝对值很小，此时加入积分，减小静态误差*/
         if (fabsf(PIDFreq.err) < err_Mmin){
             deta = 0.0;
@@ -88,7 +99,7 @@ void PID_realize() {
             PIDFreq.output =  PIDFreq.output;                           /*系统基本达到稳定，保持PID*/
             PIDFreq.integral += PIDFreq.err;
             PIDFreq.stable = 1;
-            _NOP();
+            //_NOP();
         }else{
             if (fabsf(PIDFreq.err) > err_Mmin && fabsf(PIDFreq.err_last) > err_Mmin) PIDFreq.stable = 0;
             if (PIDFreq.stable == 0){

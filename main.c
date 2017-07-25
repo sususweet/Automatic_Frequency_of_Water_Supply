@@ -25,13 +25,14 @@
 //#define PID_WAITING_TIME 160
 
 /*为减小占用空间，以正整数形式存储，使用时除10*/
-#define MAX_STANDBY_PRESSURE Fc_to_Pressure(Max_Fc) * 10
+#define MAX_STANDBY_PRESSURE 150
 #define MAX_WORKING_PRESSURE Fc_to_Pressure(Max_Fc) * 10
 #define MIN_WORKING_PRESSURE Fc_to_Pressure(Min_Fc) * 10
 #define DEFAULT_STANDBY_PRESSURE 80
 #define DEFAULT_WORKING_PRESSURE 100
 /*注释结束*/
-#define WATER_FLOW_THRESHOLD 1.0
+
+#define WATER_FLOW_THRESHOLD 3.0
 
 extern pid PIDFreq;
 
@@ -78,7 +79,7 @@ unsigned char pid_calculate_num = 0;
 //unsigned char pid_waiting_num = 0;
 //unsigned char pid_waiting_flag = 1;
 
-unsigned char water_flow_change_flag = 1;
+unsigned char water_flow_change_flag = 0;
 unsigned char standbyPressureChangeFlag = 1;
 unsigned char workingPressureChangeFlag = 1;
 unsigned char FCChangeFlag = 1;
@@ -192,8 +193,8 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
             if (pid_calculate_num >= PID_CALCULATE_FREQ) {
                 pid_calculate_num = 0;
                 if (motor_stage == MOTOR_WORKING){
-
-                    if (frequency / 7.5 < WATER_FLOW_THRESHOLD
+                    water_flow_change_flag = 0;
+                    /*if (frequency / 7.5 < WATER_FLOW_THRESHOLD
                         && frequency_last / 7.5 >= WATER_FLOW_THRESHOLD){
                         water_flow_change_flag = 1;
                     } else if (frequency / 7.5 >= WATER_FLOW_THRESHOLD
@@ -201,7 +202,7 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
                         water_flow_change_flag = 2;
                     } else {
                         water_flow_change_flag = 0;
-                    }
+                    }*/
 
                     if (water_flow_change_flag == 1){
                         Set_Pressure = (float) (1.0 * standbyPressure / 10);
@@ -670,6 +671,20 @@ void LCD_Twinkle_Update() {
     }
 
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
+        waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
+        lcd_pressure_num = 0;
+        if (waterPressure < 200){
+            LCD_Show_Get_Data(waterPressure);
+            LCD_Show(4, 2, displayCache);
+        }
+        waterFlow = (unsigned int) (frequency / 7.5 * 10);
+        if (waterFlow < 300){
+            LCD_Show_Get_Data(waterFlow);
+            LCD_Show(4, 6, displayCache);
+        }
+
+
+#ifdef DEBUG
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
         /*displayCache[0] = ' ';
@@ -693,6 +708,7 @@ void LCD_Twinkle_Update() {
         //waterFlow = (unsigned int) (frequency / 7.5 * 10);
         //LCD_Show_Get_Data(waterFlow);
         LCD_Show(4, 6, displayCache);
+#endif
     }
 
     /*waterPressure = (unsigned int) (Capture_voltage * 10);
@@ -737,23 +753,34 @@ void LCD_Show_Update() {
     }
 
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
-        //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
+        waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
+        lcd_pressure_num = 0;
+        if (waterPressure < 200){
+            LCD_Show_Get_Data(waterPressure);
+            LCD_Show(4, 2, displayCache);
+        }
+        waterFlow = (unsigned int) (frequency / 7.5 * 10);
+        if (waterFlow < 300){
+            LCD_Show_Get_Data(waterFlow);
+            LCD_Show(4, 6, displayCache);
+        }
+
+
         //LCD_Show_Get_Data(waterPressure);
-        displayCache[0] = ' ';
+        /*displayCache[0] = ' ';
         displayCache[1] = ' ';
         displayCache[2] = '\0';
         LCD_Show(4, 3, displayCache);
-        LCD_Show(4, 7, displayCache);
+        LCD_Show(4, 7, displayCache);*/
 
 
-        sprintf(displayCache,"%.1f", GetPressure(Capture_voltage));
-        lcd_pressure_num = 0;
-        LCD_Show(4, 2, displayCache);
+        //sprintf(displayCache,"%.1f", GetPressure(Capture_voltage));
 
-        sprintf(displayCache,"%.1f",frequency / 7.5);
+
+        /*sprintf(displayCache,"%.1f",frequency / 7.5);
         //waterFlow = (unsigned int) (frequency / 7.5 * 10);
         //LCD_Show_Get_Data(waterFlow);
-        LCD_Show(4, 6, displayCache);
+        LCD_Show(4, 6, displayCache);*/
     }
     /*sprintf(displayCache,"%4.2f",Voltage_to_Pressure_Show(Capture_voltage));
    // sprintf(displayCache,"%6.5f",Capture_voltage);

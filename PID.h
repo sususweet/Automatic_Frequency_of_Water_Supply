@@ -8,7 +8,7 @@
 #ifndef PID_H_
 #define PID_H_
 
-#define Max_Fc 10450
+#define Max_Fc 10425
 //#define Max_Fc 11955
 #define Min_Fc 7950
 
@@ -23,6 +23,8 @@ struct _pid{
     float Kp,Ki,Kd;            //定义比例、积分、微分系数
     unsigned int output;             //定义电压值（控制执行器的变量）
     unsigned char stable;
+    unsigned char more_offset;
+    unsigned char less_offset;
     float integral;            //定义积分值
 };
 

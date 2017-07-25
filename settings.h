@@ -105,13 +105,6 @@
 //#define LED_0_IN P1IN &=BIT1
 
 /*
- * Motor Interface
- */
-#define MOTOR_F0 IO_BIT_ALIAS(&P7IN,2)
-
-//TODO: SPWM output interface.
-
-/*
  * Frequency Capture
  */
 #define Fre_Capture_IN P2DIR &= ~BIT3; //设置P2.3口为外部脉冲输入口
