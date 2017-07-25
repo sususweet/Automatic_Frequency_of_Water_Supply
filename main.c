@@ -11,6 +11,7 @@
 #include "frequency_capture.h"
 #include "Clock.h"
 #include "PID.h"
+#include "RS232.h"
 
 /**
  * main.c
@@ -35,6 +36,10 @@
 #define WATER_FLOW_THRESHOLD 3.0
 
 extern pid PIDFreq;
+
+unsigned char REC_BUF[11];       //接收缓存区
+char datatype[5]={'P','F','W','S','M'};  //水压 流量 供水压力 待机压力 电机状态
+
 
 enum setting_state {
     NORMAL, STANDBY1, STANDBY2, STANDBY3, WORKING1, WORKING2, WORKING3
@@ -76,7 +81,7 @@ unsigned char lcd_twinkle_cursor = 0;
 unsigned char lcd_twinkle_num = 0;
 unsigned char lcd_pressure_num = LCD_PRESSURE_UPDATE;
 unsigned char pid_calculate_num = 0;
-//unsigned char pid_waiting_num = 0;
+unsigned char com_sendtype = 0;
 //unsigned char pid_waiting_flag = 1;
 
 unsigned char water_flow_change_flag = 0;
@@ -84,7 +89,8 @@ unsigned char standbyPressureChangeFlag = 1;
 unsigned char workingPressureChangeFlag = 1;
 unsigned char FCChangeFlag = 1;
 
-const unsigned char line1[16] = {"FC  "};
+const unsigned char line1[16] = {"恒压变频供水系统"};
+//const unsigned char line1[16] = {"FC  "};
 const unsigned char line2[16] = {"待机压力："};
 const unsigned char line3[16] = {"供水压力："};
 const unsigned char line41[8] = {"水压"};
@@ -100,6 +106,8 @@ void LCD_Twinkle_Update();
 void opr_key(unsigned char key_num);
 
 void Change_Fc_PID();
+
+void Operate_motor();
 
 void scan_key() {
     static unsigned char key_state = KEY_STATE_RELEASE;   /*状态机状态初始化，采用static保存状态*/
@@ -421,38 +429,7 @@ void opr_key(unsigned char key_num) {
             break;
         }
         case 4: {                       /*抽水系统启动/停止*/
-            switch (motor_stage) {
-                case MOTOR_STOPPED: {
-                    SPWM_GPIO_INIT();
-                    SPWM_CLOCK_INIT();
-                    Set_Pressure = (float) (1.0 * workingPressure / 10);
-                    Sent_Fc = Set_Fc = Pressure_to_Fc(workingPressure / 10);
-
-                    PID_init();
-                    pid_calculate_num = 0;
-                    water_flow_change_flag = 1;
-                    //pid_waiting_num = 0;
-                    //pid_waiting_flag = 1;
-
-                    /*Change_Fc_PID();
-                    FCChangeFlag = 1;
-                    FcArray[FcArrayIndex] = Sent_Fc;
-                    FcArrayIndex ++;
-                    if (FcArrayIndex >= 50) FcArrayIndex = 0;*/
-                    //Set_Fc = Sent_Fc = Pressure_to_Fc(workingPressure / 10);
-
-                    SPWM_Change_Freq(Sent_Fc);
-                    motor_stage = MOTOR_WORKING;
-                    break;
-                }
-                case MOTOR_WORKING: {
-                    SPWM_GPIO_OFF();
-                    motor_stage = MOTOR_STOPPED;
-                    break;
-                }
-                default:
-                    break;
-            }
+            Operate_motor();
             break;
         }
         case 5:
@@ -657,6 +634,7 @@ void LCD_Twinkle_Update() {
                 break;
         }
     }
+#ifdef DEBUG
     if (FCChangeFlag == 1) {
         displayCache[0] = ' ';
         displayCache[1] = ' ';
@@ -669,21 +647,38 @@ void LCD_Twinkle_Update() {
         LCD_Show(1, 2, displayCache);
         FCChangeFlag = 0;
     }
-
+#endif
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
-        waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         lcd_pressure_num = 0;
+
+        waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         if (waterPressure < 200){
             LCD_Show_Get_Data(waterPressure);
             LCD_Show(4, 2, displayCache);
+            if (com_sendtype == 0) RS232TX_SEND(datatype[0],displayCache);
         }
+
         waterFlow = (unsigned int) (frequency / 7.5 * 10);
         if (waterFlow < 300){
             LCD_Show_Get_Data(waterFlow);
             LCD_Show(4, 6, displayCache);
+            if (com_sendtype == 1) RS232TX_SEND(datatype[1],displayCache);
         }
 
+        if(com_sendtype == 2){
+            if (motor_stage == MOTOR_STOPPED) displayCache[0] = '0';
+            else if (motor_stage == MOTOR_WORKING) displayCache[0] = '1';
+            displayCache[1] = '\0';
+            RS232TX_SEND(datatype[4],displayCache);
+        }
 
+        if (com_sendtype == 0){
+            com_sendtype = 1;
+        } else if(com_sendtype == 1){
+            com_sendtype = 2;
+        }else if(com_sendtype == 2){
+            com_sendtype = 0;
+        }
 #ifdef DEBUG
         //waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         //LCD_Show_Get_Data(waterPressure);
@@ -727,6 +722,7 @@ void LCD_Show_Update() {
 
    /* //sprintf(displayCache,"%04d",Set_Fc);
     LCD_Show(1, 2, displayCache);*/
+#ifdef DEBUG
     if (FCChangeFlag == 1){
         displayCache[0] = ' ';
         displayCache[1] = ' ';
@@ -739,6 +735,7 @@ void LCD_Show_Update() {
         LCD_Show(1, 2, displayCache);
         FCChangeFlag = 0;
     }
+#endif
 
     if (standbyPressureChangeFlag == 1){
         LCD_Show_Get_Data(standbyPressure);
@@ -753,16 +750,35 @@ void LCD_Show_Update() {
     }
 
     if (lcd_pressure_num >= LCD_PRESSURE_UPDATE) {   //1S
-        waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         lcd_pressure_num = 0;
+
+        waterPressure = (unsigned int) (GetPressure(Capture_voltage) * 10);
         if (waterPressure < 200){
             LCD_Show_Get_Data(waterPressure);
             LCD_Show(4, 2, displayCache);
+            if (com_sendtype == 0) RS232TX_SEND(datatype[0],displayCache);
         }
+
         waterFlow = (unsigned int) (frequency / 7.5 * 10);
         if (waterFlow < 300){
             LCD_Show_Get_Data(waterFlow);
             LCD_Show(4, 6, displayCache);
+            if (com_sendtype == 1) RS232TX_SEND(datatype[1],displayCache);
+        }
+
+        if(com_sendtype == 2){
+            if (motor_stage == MOTOR_STOPPED) displayCache[0] = '0';
+            else if (motor_stage == MOTOR_WORKING) displayCache[0] = '1';
+            displayCache[1] = '\0';
+            RS232TX_SEND(datatype[4],displayCache);
+        }
+
+        if (com_sendtype == 0){
+            com_sendtype = 1;
+        } else if(com_sendtype == 1){
+            com_sendtype = 2;
+        }else if(com_sendtype == 2){
+            com_sendtype = 0;
         }
 
 
@@ -808,10 +824,121 @@ void Change_Fc_PID(){
     }
 }
 
+void Translate_Com(unsigned char *str) {
+    switch (*str){
+        case('W'):{
+            str++;
+            workingPressure = 0;
+            while (*str != '\0'){
+                workingPressure = (*str) - '0' + workingPressure * 10;
+                str++;
+            }
+            workingPressureChangeFlag = 1;
+            break;
+        }
+        case('S'):{
+            str++;
+            standbyPressure = 0;
+            while (*str != '\0'){
+                standbyPressure = (*str) - '0' + standbyPressure * 10;
+                str++;
+            }
+            standbyPressureChangeFlag = 1;
+            break;
+        }
+        case('M'):{
+            Operate_motor();
+            break;
+        }
+        default:break;
+    }
+}
+
+//RS232/485接收中断服务程序
+//_nop()只是测试用来看是不是进了对应的位置用的 可以删掉
+#pragma vector=USCI_A3_VECTOR
+__interrupt void USCI_A3_ISR(void) {
+  static unsigned int datacount=0;
+  unsigned char end;
+  if(datacount==0) {
+    REC_BUF[datacount] = UCA3RXBUF;   //访问接收缓冲寄存器
+    datacount++;
+    switch(REC_BUF[0]){         //judge data type
+      case('P'):
+      case('F'):
+      case('W'):
+      case('S'):
+      case('M'):{
+          _nop();
+          break;
+      }
+      default:{
+        datacount=0;
+        break;
+      }
+    }
+  } else if(datacount<11){
+    end=UCA3RXBUF;
+    /*   假读\0 不存  现在没这个情况了
+    if(datacount==1){
+
+        REC_BUF[1]=REC_BUF[2];
+    }
+    */
+    if(end=='E'){
+        REC_BUF[datacount] = '\0';
+        datacount=0;
+        Translate_Com(REC_BUF);
+    }else{
+        REC_BUF[datacount]= end;
+        datacount++;
+    }
+  } 
+}
+//unsigned char datatest[9]={"19.2"};
+//RS232TX_SEND(datatype[0],datatest);
+
+void Operate_motor(){
+    switch (motor_stage) {
+        case MOTOR_STOPPED: {
+            SPWM_GPIO_INIT();
+            SPWM_CLOCK_INIT();
+            Set_Pressure = (float) (1.0 * workingPressure / 10);
+            Sent_Fc = Set_Fc = Pressure_to_Fc(workingPressure / 10);
+
+            PID_init();
+            pid_calculate_num = 0;
+            water_flow_change_flag = 1;
+            //pid_waiting_num = 0;
+            //pid_waiting_flag = 1;
+
+            /*Change_Fc_PID();
+            FCChangeFlag = 1;
+            FcArray[FcArrayIndex] = Sent_Fc;
+            FcArrayIndex ++;
+            if (FcArrayIndex >= 50) FcArrayIndex = 0;*/
+            //Set_Fc = Sent_Fc = Pressure_to_Fc(workingPressure / 10);
+
+            SPWM_Change_Freq(Sent_Fc);
+            motor_stage = MOTOR_WORKING;
+            break;
+        }
+        case MOTOR_WORKING: {
+            SPWM_GPIO_OFF();
+            motor_stage = MOTOR_STOPPED;
+            break;
+        }
+        default:
+            break;
+    }
+}
+
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;       // stop watchdog timer
 
     initClock();
+	Init_RSUART();
+	
     ADS1118_GPIO_Init();           //initialize the GPIO
     ADS1118_SPI_Init();
     Capture_init();

@@ -21,6 +21,8 @@ set(SOURCE_FILES settings.h
         Clock.c
         Clock.h
         in430.h
+        RS232.c
+        RS232.h
         msp430f5438a.h)
 
 # include_directories(.)

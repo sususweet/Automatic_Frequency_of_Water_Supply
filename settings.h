@@ -110,4 +110,25 @@
 #define Fre_Capture_IN P2DIR &= ~BIT3; //设置P2.3口为外部脉冲输入口
 #define Fre_Capture_Mode P2SEL |= BIT3; //设置P2.3口为功能模块使用,做捕获源
 
+
+/*
+ * USB端口
+ */
+
+#define USB_PORT_SEL P5SEL
+#define USB_PORT_DIR P5DIR
+
+/*
+ * RS232/485端口
+ */
+#define RS_PORT_SEL P10SEL
+#define RS_PORT_DIR P10DIR
+#define RS485_IN P7OUT &=~BIT4;\
+                 P7DIR |= BIT4;\
+                 __delay_cycles(5)
+#define RS485_OUT  P7OUT |= DE_485;\
+                   P7DIR |= DE_485;\
+                   delay_cycles(5)
+#define TXD BIT4  // UART发送
+#define RXD BIT5  // UART接收
 #endif /* SETTINGS_H_ */
