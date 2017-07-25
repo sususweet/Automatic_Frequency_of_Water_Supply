@@ -175,12 +175,12 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
             if (lcd_twinkle_num >= LCD_TWINKLE_FREQ) {   //500MS
                  Capture_voltage = ADC();
                  lcd_twinkle_num = 0;
-                 pressureArray[pressureArrayIndex] = Voltage_to_Pressure_Show(Capture_voltage);
+                 /*pressureArray[pressureArrayIndex] = Voltage_to_Pressure_Show(Capture_voltage);
                  pressureArrayIndex ++;
                  if (pressureArrayIndex >= 300) {
                      pressureArrayIndex = 0;
                      _NOP();
-                 }
+                 }*/
                  if (setting_stage == NORMAL) LCD_Show_Update();
                  else LCD_Twinkle_Update();
              }
@@ -224,9 +224,9 @@ __interrupt void Timer_A1(void) {             // 10ms溢出中断
 
                     Change_Fc_PID();
                     FCChangeFlag = 1;
-                    FcArray[FcArrayIndex] = Sent_Fc;
+                    /*FcArray[FcArrayIndex] = Sent_Fc;
                     FcArrayIndex ++;
-                    if (FcArrayIndex >= 200) FcArrayIndex = 0;
+                    if (FcArrayIndex >= 200) FcArrayIndex = 0;*/
                     SPWM_Change_Freq(Sent_Fc);
                 }
 
@@ -257,9 +257,9 @@ __interrupt void Timer_A1_Cap(void) {
                         if(freq_periodEnd>182) {
                             frequency_last = frequency;
                             frequency = 32768 / freq_periodEnd;
-                            frequencyArray[frequencyArrayIndex] = frequency;
+                            /*frequencyArray[frequencyArrayIndex] = frequency;
                             frequencyArrayIndex++;
-                            if (frequencyArrayIndex >= 50) frequencyArrayIndex = 0;
+                            if (frequencyArrayIndex >= 50) frequencyArrayIndex = 0;*/
                         }
                     } else {
                         freq_overflow = 0;
