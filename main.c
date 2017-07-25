@@ -45,7 +45,7 @@ enum motor_state {
 };
 
 /*unsigned int */
-float pressureArray[200] =  {0};
+float pressureArray[300] =  {0};
 unsigned int pressureArrayIndex = 0;
 float frequencyArray[50] =  {0};
 unsigned int frequencyArrayIndex = 0;
@@ -169,7 +169,7 @@ __interrupt void Timer_A1(void) {             // 10msÒç³öÖÐ¶Ï
                  lcd_twinkle_num = 0;
                  pressureArray[pressureArrayIndex] = Voltage_to_Pressure_Show(Capture_voltage);
                  pressureArrayIndex ++;
-                 if (pressureArrayIndex >= 200) {
+                 if (pressureArrayIndex >= 300) {
                      pressureArrayIndex = 0;
                      _NOP();
                  }
@@ -825,6 +825,12 @@ int main(void) {
     _NOP();
     SPWM_Init();
     //SPWM_GPIO_INIT();
+#ifdef DEBUG
+    SPWM_GPIO_INIT();
+    SPWM_CLOCK_INIT();
+    Set_Pressure = (float) (1.0 * workingPressure / 10);
+    Sent_Fc = Set_Fc = Pressure_to_Fc(workingPressure / 10);
+#endif
     _NOP();
 
     initTimerA0();
